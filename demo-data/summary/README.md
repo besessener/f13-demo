@@ -1,0 +1,3 @@
+# Dokument für die Zusammenfassung
+
+`vwv_pokehaltung.pdf` ist eine Kopie des PDFs von Dokument 1 der Wissensbasis (`demo-data/rag/01_vwv_pokehaltung.pdf`): die erfundene „Verwaltungsvorschrift über die Haltung von Pokémon in Dienstgebäuden (VwV PokéHaltung)“ des fiktiven Landesamts für Pokémon-Angelegenheiten Kanto, drei Seiten mit zwölf Paragraphen. Sie dient in der Vorführung als Eingabe für die Funktion „Zusammenfassung“ in F13: Datei hochladen und eine Zusammenfassung erzeugen lassen. Die Datei wird nicht von Hand bearbeitet, sondern von `werkzeuge/pdf_erzeugen.py` zusammen mit den übrigen PDFs neu erzeugt und hierher kopiert. Fiktives Dokument – nur für interne Demonstrationszwecke.
