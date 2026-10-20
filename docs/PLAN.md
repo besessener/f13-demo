@@ -1,6 +1,7 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v3.** Die Eckdaten stehen fest. Offen sind nur noch die Hardware-Details und der Termin in §11.
+Status: **Entwurf v4.** Alle Eckdaten stehen fest. Offen ist nur noch das Betriebssystem
+(§11).
 
 ## 1. Ziel
 
@@ -10,12 +11,14 @@ verstehe, selbst betreiben kann und anderen vorführen kann.
 | Eckdaten | Festgelegt |
 | --- | --- |
 | Zielgruppe | Intern: Führungskraft und Kolleg:innen |
-| Betrieb | **Vollständig lokal**, nur CPU, keine Cloud, keine GPU |
-| Modell | Kleines Open-Weight-Modell (3–4 B) über **Ollama** |
+| Termin | **Mo, 09.11.2026** (in 20 Tagen) |
+| Rechner | **8 GB RAM, keine GPU** |
+| Betrieb | **Vollständig lokal**, keine Cloud |
+| Modell | Kleines Open-Weight-Modell (2–3 B) über **Ollama** |
 | Funktionen | Chat, Zusammenfassung, **RAG** |
 | RAG-Thema | **Pokémon** (siehe §4) |
 | Sprache | **Nur Deutsch**: Oberfläche, Wissensbasis, Prompts, Doku |
-| Branding | **„F13 · Pokédex-Edition“** (siehe §5) |
+| Branding | Nur wenn F13 es per Konfiguration erlaubt (siehe §5) |
 
 ## 2. Was ist F13?
 
@@ -28,7 +31,7 @@ Fachdiensten:
 
 | Repo (`gitlab.opencode.de/f13/microservices/…`) | Rolle in der Demo |
 | --- | --- |
-| `frontend` / `f13-frontend` | Weboberfläche |
+| `f13-frontend` (React) / `frontend` (Svelte) | Weboberfläche |
 | `core` | Schnittstelle zwischen Frontend und Diensten (v3: APISIX-Gateway) |
 | `chat` | Chat mit lokalem LLM |
 | `summary` | Zusammenfassung von Dokumenten (Map-Reduce) |
@@ -37,46 +40,77 @@ Fachdiensten:
 
 > **Noch nicht verifiziert:** Diese Punkte stammen aus Sekundärquellen und werden in Phase 1
 > gegen die offiziellen READMEs geprüft:
-> - Frontend-Stack (React oder Svelte)
-> - Gastmodus oder Keycloak-Login in v3
+> - Welches Frontend v3 nutzt
+> - Gastmodus oder Keycloak-Login
 > - OPA-Sidecar für Chat v3
 > - Welches Embedding-Modell und welche Vektor-DB RAG nutzt, und ob sich beides über
 >   Ollama betreiben lässt
+> - Welche Branding-Optionen es gibt
 >
 > `gitlab.opencode.de` war in der Umgebung, in der dieser Plan entstand, gesperrt.
 
-## 3. Architektur (lokal, nur CPU)
+## 3. Architektur und Betrieb mit 8 GB RAM
 
 ```
 Browser ──► Frontend ──► Core (APISIX) ──┬─► Chat ─────────────┐
-                                         ├─► Summary ──► Parser├─► Ollama :11434
-                                         └─► RAG ──► Vektor-DB ┘    ├─ LLM (3–4 B, Q4)
-                                                                    └─ Embeddings (bge-m3)
+                                         ├─► Summary ──► Parser├─► Ollama :11434 (nativ, nicht in Docker)
+                                         └─► RAG ──► Vektor-DB ┘    ├─ LLM (2–3 B, Q4)
+                                                                    └─ Embeddings (granite-embedding:278m)
 ```
 
 Ollama stellt unter `http://<host>:11434/v1/` eine OpenAI-kompatible API bereit, mit
 `/v1/chat/completions` und `/v1/embeddings`. Laut offizieller Doku ist diese Schicht noch
 „experimental“. Deshalb pinnen wir die Ollama-Version.
 
-### Modellwahl
+### Modellwahl für 8 GB
 
-Wir machen in Phase 2 einen Vergleich mit 5 deutschen Test-Prompts. Kandidaten:
+Wir machen in Phase 2 einen Vergleich mit 5 deutschen Test-Prompts:
 
-| Modell | Ollama-Tag | Größe (Q4) | Warum |
+| Modell | Ollama-Tag | Größe (ca.) | Warum |
 | --- | --- | --- | --- |
-| Qwen 3.5 4B | `qwen3.5:4b` | ca. 3,4 GB | Wird 2026 am häufigsten für CPU-only empfohlen |
-| Llama 3.2 3B | `llama3.2:3b` | ca. 2 GB | Deutsch offiziell unterstützt, schnell |
-| Gemma 4 (klein) | `gemma4:*` | ca. 1,5–3 GB | Schnellste Option, Deutsch ungetestet |
-| **Embeddings:** BGE-M3 | `bge-m3` | ca. 1,2 GB | Mehrsprachig und stark für Deutsch; 8k Kontext |
+| Llama 3.2 3B | `llama3.2:3b` | 2 GB | Deutsch offiziell unterstützt; **Favorit** |
+| Gemma 4 (klein) | `gemma4` (E2B) | 1,5 GB | Kleinste und schnellste Option; Deutsch ungetestet |
+| Qwen 3.5 2B | `qwen3.5:2b` | 2,7 GB | Gut bewertet, aber größer als erwartet |
+| ~~Qwen 3.5 4B~~ | `qwen3.5:4b` | 3,4 GB | Passt mit 8 GB voraussichtlich **nicht** |
+| **Embeddings:** Granite Embedding 278M | `granite-embedding:278m` | 0,6 GB | Mehrsprachig mit Deutsch, klein. Max. 512 Tokens pro Abschnitt, daher kurze Abschnitte in der Wissensbasis. |
+| Embeddings (Alternative) | `bge-m3` | 1,2 GB | Besser, aber nur wenn genug RAM übrig ist |
 
-Bewertet werden: korrektes Deutsch, Treue zu den Quellen bei RAG, Tokens pro Sekunde auf
-meinem Rechner. Die genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
+Bewertet werden: korrektes Deutsch, Treue zu den Quellen bei RAG, Tokens pro Sekunde. Die
+genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
 
-### Ressourcenbudget (Annahme: 16 GB RAM)
+### RAM-Budget (8 GB)
 
-LLM ca. 4–5 GB, Embeddings ca. 1,5 GB, Vektor-DB ca. 1–2 GB, F13-Dienste ca. 2–3 GB.
-Das passt in **16 GB**. Mit 8 GB wird es eng: dann nehmen wir das kleinste Modell und
-lassen Dienste weg, wo es geht.
+| Posten | ca. |
+| --- | --- |
+| Betriebssystem, Desktop, Docker | 2,5–3 GB |
+| Browser (nur ein Tab) | 0,5 GB |
+| LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB |
+| Embedding-Modell | 0,6 GB |
+| F13-Dienste und Vektor-DB | 1,5–2 GB |
+| **Summe** | **7–8,5 GB, also knapp** |
+
+### Sparmaßnahmen
+
+- **Ollama nativ** installieren, nicht im Docker-Container.
+- Ollama-Einstellungen:
+  - `OLLAMA_NUM_PARALLEL=1`
+  - `OLLAMA_CONTEXT_LENGTH=4096`
+  - `OLLAMA_FLASH_ATTENTION=1` und `OLLAMA_KV_CACHE_TYPE=q8_0`
+  - `OLLAMA_MAX_LOADED_MODELS=2` (LLM und Embedding)
+  - `OLLAMA_KEEP_ALIVE=-1` während der Vorführung
+- `mem_limit` für jeden Container. Falls die Vektor-DB Elasticsearch ist, den Heap auf
+  512 MB begrenzen.
+- Docker Desktop bzw. WSL das Speicherlimit passend setzen (siehe §11).
+- Während der Vorführung Teams, Outlook und alle anderen Programme schließen.
+- Für die Zusammenfassung nur kurze Dokumente (2–3 Seiten) verwenden.
+
+### Go/No-Go am Fr, 23.10.
+
+Laufen Chat und Embeddings gleichzeitig stabil? Falls nicht, gehen wir in dieser
+Reihenfolge zurück:
+1. Kleineres Modell (Gemma 4 E2B)
+2. Summary-Dienst weglassen und die Zusammenfassung über den Chat zeigen
+3. Für die Vorführung einen Rechner mit 16 GB ausleihen
 
 ## 4. RAG-Thema: „Landesamt für Pokémon-Angelegenheiten Kanto“
 
@@ -87,12 +121,14 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 1. **Beweiskraft:** Das Modell kann diese Regeln nicht aus dem Training kennen. Eine
    richtige Antwort beweist also, dass RAG funktioniert.
 2. **Keine Lizenzfragen:** Alle Texte schreiben wir selbst. Wir kopieren nichts aus Wikis,
-   übernehmen keine offiziellen Bilder oder Sprites und veröffentlichen nichts außerhalb der
-   Firma.
+   übernehmen keine offiziellen Bilder und veröffentlichen nichts außerhalb der Firma.
 3. **Kontrollierbar:** Zu jeder Testfrage gibt es eine bekannte richtige Antwort mit
    Fundstelle.
 
-### Wissensbasis (`demo-data/rag/`, je 1–3 Seiten, als PDF und Markdown)
+### Wissensbasis (`demo-data/rag/`)
+
+Je Dokument 1–3 Seiten, als PDF und Markdown. Kurze Paragraphen mit höchstens 512 Tokens,
+passend zum Embedding-Modell.
 
 | Nr. | Dokument | Inhalt (Beispiele) |
 | --- | --- | --- |
@@ -113,53 +149,31 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 | „Wer darf Meisterbälle ausgeben?“ | Dienstanweisung Inventur, Abschnitt Verschlusssachen |
 | **Gegenprobe:** dieselbe Frage im Chat **ohne** RAG | Das Modell rät oder weiß es nicht. Das zeigt den Unterschied. |
 
-## 5. Branding: „F13 · Pokédex-Edition“
+## 5. Branding (nur wenn einfach)
 
-### Geht das?
+**Regel:** Wir branden **nur über die eingebaute Konfiguration von F13**, also z. B. Titel,
+Logo und Farben per Env-Variable oder Config-Datei. Kein eigenes Image, kein Wrapper, kein
+Patch. Wenn F13 dafür keine Option hat, bleibt das Standard-Design.
 
-**Ja.**
-- F13 steht unter MPL-2.0. Wir dürfen das Frontend also ändern. Für die interne Nutzung
-  gibt es keine Auflagen. Geben wir geänderte F13-Dateien weiter, bleiben sie MPL-2.0.
-- **Noch nicht verifiziert:** Ob sich Logo und Farben per Konfiguration ändern lassen.
-  Außerdem gibt es zwei Frontends, `f13-frontend` (React) und `frontend` (Svelte).
-  Welches v3 nutzt, klärt Phase 1.
+Zeitlimit: **höchstens 2 Stunden** in Phase 7.
 
-### Vorgehen: so wenig Eingriff wie möglich
+Falls Optionen vorhanden sind, verwenden wir nur das, was sich einstellen lässt:
 
-1. **Konfiguration**, falls vorhanden: Titel, Logo und Farben über Env-Variablen oder eine
-   Config-Datei setzen.
-2. **Overlay-Image:** `branding/Dockerfile` baut `FROM <F13-Frontend-Image>` und kopiert
-   CSS-Overrides, Logo, Favicon und Schrift hinein. Upstream bleibt unverändert, und
-   Updates bleiben einfach.
-3. **Patch**, nur wenn nötig: ein kleiner Patch in `branding/patches/`, z. B. für
-   Oberflächentexte.
-
-### Gestaltung
-
-| Element | Umsetzung |
+| Element | Wert |
 | --- | --- |
-| Name | „F13 · Pokédex-Edition“ |
-| Farben | Pokédex-Rot `#DC0A2D` für Kopfzeile und Primärbuttons, Dunkelrot `#9E0820` für Hover, Display-Blau `#30A7D7` als Akzent (nur Flächen und Rahmen oder mit dunkler Schrift, **nie** weiße Schrift darauf: 2,75:1), Gelb `#FFCB05` nur als Hinweis-Hintergrund mit dunkler Schrift |
-| Dunkelmodus (optional) | „Game-Boy-Grün“: `#0F380F` / `#306230` / `#8BAC0F` / `#9BBC0F` |
-| Logo und Favicon | Selbst gezeichnetes SVG: blaue „Pokédex-Linse“ neben dem Schriftzug „F13“. **Kein** offizielles Logo, keine Sprites. |
-| Schrift | Überschriften in „Press Start 2P“ (Pixel-Look, SIL OFL), **lokal eingebunden** und ohne Abruf von Google Fonts, weil die Demo offline läuft. Fließtext in der Systemschrift. |
-| Oberflächentexte | Begrüßung: „Ein wildes F13 erscheint! Wie kann ich helfen?“ · Laden: „F13 setzt Nachdenken ein …“ · Upload fertig: „Dokument gefangen!“ · Fehler: „Das war nicht sehr effektiv … Bitte erneut versuchen.“ · Leerer Verlauf: „Noch keine Einträge im Pokédex.“ |
+| Titel | „F13 · Pokédex-Edition“ |
+| Primärfarbe | Pokédex-Rot `#DC0A2D`, mit weißer Schrift (Kontrast 5,1:1) |
+| Akzentfarbe | Display-Blau `#30A7D7`, nur mit dunkler Schrift (6,3:1). **Nie** weiße Schrift darauf (2,75:1). |
+| Logo | Selbst gezeichnetes SVG: blaue „Pokédex-Linse“ und „F13“. Kein offizielles Logo. |
+| Begrüßungstext | „Ein wildes F13 erscheint! Wie kann ich helfen?“ |
 
-### Regeln
-
-- **Antworten bleiben sachlich.** Der Pokémon-Stil gehört in die Oberfläche und die
-  Wissensbasis, **nicht** in den Systemprompt. Sonst leidet die Antwortqualität des
-  kleinen Modells.
-- **Barrierefreiheit:** Kontrast mindestens 4,5:1 (WCAG AA). Geprüft: Weiß auf `#DC0A2D` 5,1:1,
-  Weiß auf `#9E0820` 8,4:1, Dunkel auf Gelb 11,4:1, Dunkel auf Blau 6,3:1. Alle
-  bestehen. Die Pixel-Schrift verwenden wir nur für Überschriften.
-- **Freigabe vor dem Umbau:** Zuerst entsteht ein klickbarer HTML-Entwurf, und ich gebe
-  ihn frei.
+Die Antworten des Modells bleiben sachlich. Der Pokémon-Stil kommt nicht in den
+Systemprompt.
 
 ## 6. Ablauf der Vorführung (ca. 10–12 Min.)
 
 1. **Einstieg (1 Min.):** Was ist F13, und warum ist der lokale Betrieb wichtig? Ich zeige
-   kurz die Architekturskizze und die Pokédex-Edition.
+   kurz die Architekturskizze.
 2. **Chat (2 Min.):** Ablehnungsbescheid für einen Arenalizenz-Antrag in **Leichter
    Sprache** schreiben lassen.
 3. **Zusammenfassung (2 Min.):** Die VwV PokéHaltung als PDF hochladen und eine
@@ -167,33 +181,36 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 4. **RAG (4 Min.):** Die Testfragen stellen und die Quellenangaben zeigen. Danach die
    Gegenprobe ohne RAG.
 5. **Souveränität (1 Min.):** WLAN aus und noch eine Frage stellen. Alles läuft weiter.
-6. **Grenzen und Fazit (2 Min.):** Geschwindigkeit auf CPU, Qualität eines 4B-Modells,
-   was der Produktivbetrieb bräuchte (GPU, größeres Modell).
+6. **Grenzen und Fazit (2 Min.):** Läuft auf einem Laptop mit 8 GB, aber langsam. Ein
+   2–3B-Modell hat begrenzte Qualität. Was der Produktivbetrieb bräuchte (GPU, größeres
+   Modell).
 
-## 7. Phasen
+## 7. Zeitplan
 
-| Phase | Inhalt | Aufwand |
+Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
+
+| Phase | Inhalt | Wann |
 | --- | --- | --- |
-| **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären. | ½–1 Tag |
-| **2. Ollama und Modelle** | Ollama installieren, Kandidaten laden, Vergleich mit deutschen Prompts, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings` | ½ Tag |
-| **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | 1 Tag |
-| **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | ½ Tag |
-| **5. Wissensbasis schreiben** | Die 6 Dokumente aus §4 und den Antwortschlüssel schreiben, PDFs erzeugen | ½–1 Tag |
-| **6. RAG** | RAG-Dienst und Vektor-DB einbinden, Wissensbasis indexieren, Testfragen durchlaufen lassen und Trefferquote notieren | 1 Tag |
-| **7. Branding** | HTML-Entwurf freigeben, dann Logo, CSS und Texte über Konfiguration oder Overlay-Image umsetzen (siehe §5) | ½–1 Tag |
-| **8. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, Modelle vorladen (Warm-up), Bildschirmaufnahme als Fallback, Generalprobe | ½–1 Tag |
-
-**Gesamt: ca. 5–7 Tage.**
+| **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären, auch die Branding-Optionen. | Mi 21.10. |
+| **2. Ollama und Modelle** | Ollama nativ installieren, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`, RAM messen | Do 22.10. – Fr 23.10. |
+| 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
+| **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
+| **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |
+| **5. Wissensbasis** | Die 6 Dokumente und den Antwortschlüssel schreiben, PDFs erzeugen. Kann parallel laufen. | bis Do 29.10. |
+| **6. RAG** | RAG-Dienst und Vektor-DB einbinden, indexieren, Testfragen durchlaufen lassen, Trefferquote notieren | Do 29.10. – Mo 02.11. |
+| **7. Branding** | Nur per Konfiguration, höchstens 2 Std. (§5) | Di 03.11. |
+| **8. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, `scripts/warmup.sh`; Generalprobe auf dem Demo-Rechner und Bildschirmaufnahme als Fallback | Mi 04.11. – Do 05.11. |
+| Puffer | Für alles, was länger dauert | Fr 06.11. |
+| 🎬 **Demo** | | **Mo 09.11.** |
 
 ## 8. Nachweis für die Zielvereinbarung
 
 | Nachweis | Ablage |
 | --- | --- |
 | Lauffähiges Repo mit Commit-Historie | dieses Repo |
-| **Lerntagebuch**: was ich gelernt habe, Probleme und Lösungen, pro Phase | `docs/LERNTAGEBUCH.md` |
 | Architekturerklärung in eigenen Worten | `docs/ARCHITEKTUR.md` |
-| Ergebnis des Modellvergleichs und Messwerte der RAG-Testfragen | `docs/MESSWERTE.md` |
-| Vorführung live und als Aufzeichnung | Termin und Datei |
+| Ergebnis des Modellvergleichs, RAM-Messung und Trefferquote der RAG-Testfragen | `docs/MESSWERTE.md` |
+| Vorführung live und als Aufzeichnung | 09.11. und Datei |
 | Anleitung „In 15 Minuten selbst starten“ für Kolleg:innen | `README.md` |
 
 ## 9. Repo-Struktur
@@ -202,10 +219,9 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 f13-demo/
 ├── README.md                 # Schnellstart (Deutsch)
 ├── Makefile                  # make up / down / check / reset / index
-├── docker-compose.yml        # kompletter Demo-Stack
+├── docker-compose.yml        # kompletter Demo-Stack (mit mem_limit)
 ├── versions.env              # gepinnte F13-Images, Ollama-Version, Modell-Tags
-├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, …)
-├── branding/                 # Pokédex-Edition: Dockerfile (Overlay), CSS, Logo, Schrift, ggf. Patches
+├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, ggf. Branding)
 ├── demo-data/
 │   ├── summary/              # Dokument für die Zusammenfassung
 │   └── rag/                  # Pokémon-Wissensbasis + testfragen.md
@@ -214,7 +230,6 @@ f13-demo/
     ├── PLAN.md               # dieses Dokument
     ├── DEMO-SKRIPT.md
     ├── ARCHITEKTUR.md
-    ├── LERNTAGEBUCH.md
     └── MESSWERTE.md
 ```
 
@@ -222,21 +237,22 @@ f13-demo/
 
 | Risiko | Gegenmaßnahme |
 | --- | --- |
-| Antworten auf CPU zu langsam | Kleinstes brauchbares Modell, kurze Dokumente, Warm-up vor der Vorführung, Kontextlänge begrenzen |
-| 4B-Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
+| **8 GB RAM reichen nicht** | Sparmaßnahmen aus §3; Go/No-Go am 23.10. mit Rückfallstufen |
+| Antworten auf CPU zu langsam | Kleines Modell, 4k Kontext, kurze Dokumente, Warm-up vor der Vorführung |
+| Kleines Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
 | RAG-Dienst erwartet ein Embedding-Modell oder eine DB, die nicht zu Ollama passt | Phase 1 klärt das. Notfalls läuft das Embedding-Modell als eigener Container. |
-| Upstream-Doku unvollständig oder nicht passend zu v3 | Versionen pinnen, eigene Compose-Datei, Probleme im Lerntagebuch festhalten |
-| Login (Keycloak) blockiert | Für die Demo den Gastmodus nutzen |
-| Zu wenig RAM | Modell oder Dienste verkleinern; siehe §3 |
-| Frontend lässt sich nicht per Konfiguration branden | Overlay-Image oder kleiner Patch (§5). Upstream bleibt unverändert. |
-| Branding geht bei einem F13-Update kaputt | Image-Version pinnen; Overlay statt Fork |
-| Markenrecht Pokémon | Nur intern; nur eigene Texte, eigenes Logo und eigene Farben; keine offiziellen Logos, Sprites oder Schriften; keine Veröffentlichung |
+| Upstream-Doku unvollständig oder nicht passend zu v3 | Versionen pinnen, eigene Compose-Datei, Probleme in der README festhalten |
+| Login (Keycloak) blockiert | Für die Demo den Gastmodus nutzen. Keycloak würde zusätzlich RAM kosten. |
+| Zeitplan rutscht | Puffertag am 06.11.; Branding wird als Erstes gestrichen, danach die Zusammenfassung |
+| Markenrecht Pokémon | Nur intern; nur eigene Texte und eigenes Logo; keine offiziellen Logos oder Bilder; keine Veröffentlichung |
 
 ## 11. Noch offen
 
-1. **Rechner:** Betriebssystem (Windows, macOS oder Linux), RAM, CPU. Ist Docker Desktop
-   bzw. Docker Engine erlaubt und installiert?
-2. **Termin** der Vorführung
+1. **Betriebssystem** des Demo-Rechners: Windows, macOS oder Linux? Ist Docker erlaubt?
+   Das ist bei 8 GB wichtig:
+   - Docker Desktop auf Windows (WSL2) und macOS läuft in einer VM mit eigenem
+     Speicherlimit.
+   - Unter Linux entfällt diese VM.
 
 ## Quellen
 
@@ -246,10 +262,13 @@ f13-demo/
 - [Treffpunkt Kommune: F13 wird Open-Source-Software](https://www.treffpunkt-kommune.de/der-startschuss-fuer-ein-souveraenes-europaeisches-ki-oekosystem-ki-assistenz-f13-wird-open-source-software/)
 - [f13-os.de – Kennenlernen](https://f13-os.de/kennenlernen/)
 - F13-Frontends: [f13-frontend (React)](https://gitlab.opencode.de/f13/microservices/f13-frontend), [frontend (Svelte)](https://gitlab.opencode.de/f13/microservices/frontend)
-- F13-Repos: [Gruppe](https://gitlab.opencode.de/f13), [Chat](https://gitlab.opencode.de/f13/microservices/chat), [Core](https://gitlab.opencode.de/f13/microservices/core), [Frontend](https://gitlab.opencode.de/f13/microservices/frontend), [Summary](https://gitlab.opencode.de/f13/microservices/summary), [Parser-Releases](https://gitlab.opencode.de/f13/microservices/parser/-/releases), [RAG](https://gitlab.opencode.de/f13/microservices/rag)
+- F13-Repos: [Gruppe](https://gitlab.opencode.de/f13), [Chat](https://gitlab.opencode.de/f13/microservices/chat), [Core](https://gitlab.opencode.de/f13/microservices/core), [Summary](https://gitlab.opencode.de/f13/microservices/summary), [Parser-Releases](https://gitlab.opencode.de/f13/microservices/parser/-/releases), [RAG](https://gitlab.opencode.de/f13/microservices/rag)
 - [Ollama – OpenAI-Kompatibilität](https://docs.ollama.com/api/openai-compatibility.md)
+- [Ollama – granite-embedding](https://registry.ollama.ai/library/granite-embedding)
+- [Docker Hub – granite-embedding-multilingual](https://hub.docker.com/r/ai/granite-embedding-multilingual)
 - [Ollama – bge-m3](https://registry.ollama.ai/library/bge-m3)
-- [Embedding-Modelle für Deutsch 2026 – WZ-IT](https://wz-it.com/blog/embedding-modelle-deutsch-vergleich/)
+- [Ollama – Kontextlänge und KV-Cache (SSD Nodes)](https://www.ssdnodes.com/learn/ollama-context-length-num-ctx)
+- [Ollama – Umgebungsvariablen (DEV)](https://dev.to/threesevenths/ollama-environment-variables-362j)
+- [Ollama – Out-of-Memory-Fehler (LocalAIMaster)](https://localaimaster.com/blog/ollama-out-of-memory-errors)
 - [Best CPU-only local LLMs 2026 – Popular AI](https://www.popularai.org/p/best-cpu-only-local-llm-2026)
-- [Qwen 3.5 mit Ollama – Apidog](https://apidog.com/blog/use-qwen-3-5-with-ollama/)
 - [Ollama-Qwen-Tags – AgenticWire](https://www.agenticwire.news/article/ollama-qwen)
