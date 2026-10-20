@@ -110,8 +110,10 @@ services:
     # Falls http://localhost:9999 unter Windows nicht erreichbar ist: "127.0.0.1:" entfernen.
     ports:
       - "127.0.0.1:${FRONTEND_PORT}:9999"
-    # Kein Healthcheck: Was im Image an Werkzeugen steckt, ist unbekannt.
-    # "docker compose run --rm pruefen" prüft das Frontend von außen.
+    # Das Image bringt einen eigenen Healthcheck mit.
+    depends_on:
+      reranker:
+        condition: service_healthy
 
   # --- API-Gateway (F13-Core = APISIX ohne etcd) ------------------------------
   core:
@@ -255,8 +257,35 @@ services:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
+      reranker:
+        condition: service_healthy
       parser:
         condition: service_started
+
+  # --- Stichwort-Reranker für RAG ----------------------------------------------
+  # Der RAG-Dienst verlangt einen Reranker (Cohere-Schnittstelle). Statt eines weiteren
+  # Modells (ca. 1 GB RAM) sortiert werkzeuge/reranker.py die Treffer nach Stichwörtern.
+  reranker:
+    <<: *dienst
+    image: python:${WERKZEUG_PYTHON_VERSION}
+    mem_limit: 64m
+    command: ["python", "/werkzeuge/reranker.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+    networks:
+      default:
+        # Das Frontend-nginx erwartet beim Start einen Host "tusd" (Upload-Dienst der
+        # Transkription, in der Demo nicht installiert). Ohne auflösbaren Namen startet
+        # nginx nicht. Der Alias erfüllt nur diese Startbedingung.
+        aliases: [tusd]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7997/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # --- Vektor-Datenbank für RAG -----------------------------------------------
   elasticsearch:

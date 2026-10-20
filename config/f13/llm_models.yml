@@ -2,7 +2,7 @@
 # Quelle: F13 core v3.0.0 (llm_models.yml), angepasst für f13-demo.
 #
 # Gemountet (einzeln, read-only) nach /<dienst>/configs/llm_models.yml
-# ANNAHME (ungeprüft): Pfad wie bei chat/feedback.
+# (in der CI mit den echten F13-Images bestätigt).
 #
 # Modellwechsel: Diese Datei kann .env NICHT lesen. Wer LLM_MODELL oder
 # EMBEDDING_MODELL in .env ändert, muss "model" hier UND in
@@ -41,6 +41,9 @@ summary:
       timeout: 900
     inference:
       max_retries: 1
+      # Ohne Grenze schreibt ein kleines Modell bei der Gesamtzusammenfassung
+      # endlos weiter (in der CI beobachtet).
+      max_tokens: 800
 
 rag:
   llama_lokal:
@@ -74,5 +77,13 @@ embedding:
       split_length: 180
       split_overlap: 30
 
-# reranking: absichtlich weggelassen (spart RAM).
-# ANNAHME (ungeprüft): Der RAG-Dienst funktioniert ohne Reranker.
+# Der RAG-Dienst verlangt einen Reranker. Statt eines weiteren KI-Modells (zu viel RAM
+# für 8 GB) läuft ein kleiner Stichwort-Reranker: werkzeuge/reranker.py, Dienst "reranker".
+reranking:
+  stichwort:
+    label: "Stichwort-Reranker (lokal)"
+    model: "stichwort-reranker"
+    is_remote: false
+    api:
+      url: http://reranker:7997/v1
+      health_check: /models
