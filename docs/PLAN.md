@@ -1,6 +1,6 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v5.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
+Status: **Entwurf v6.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
 WSL (§11).
 
 ## 1. Ziel
@@ -52,13 +52,14 @@ Fachdiensten:
 ## 3. Architektur und Betrieb mit Windows und 8 GB RAM
 
 ```
-Windows 11 (ca. 3 GB)                 WSL2-VM: Ubuntu (Limit 5 GB)
+Windows 11 (ca. 3 GB)                 WSL2-VM (Limit 5 GB)
 ┌──────────────────┐                  ┌──────────────────────────────────────────────────────────────┐
-│ Browser          │── localhost ───► │ Docker Engine (ohne Docker Desktop)                          │
+│ Browser          │── localhost ───► │ Rancher Desktop: dockerd (moby), Kubernetes AUS              │
 │ http://localhost │                  │  Frontend ─► Core (APISIX) ─┬─► Chat ──────────────┐         │
-└──────────────────┘                  │                             ├─► Summary ─► Parser  ├─► Ollama│
-                                      │                             └─► RAG ─► Vektor-DB ──┘   :11434│
-                                      │                    LLM (2–3 B, Q4) + granite-embedding:278m  │
+│                  │                  │                             ├─► Summary ─► Parser  ├─► Ollama│
+│ Rancher Desktop  │                  │                             └─► RAG ─► Vektor-DB ──┘   :11434│
+│ (Oberfläche)     │                  │                    LLM (2–3 B, Q4) + granite-embedding:278m  │
+└──────────────────┘                  │ Ubuntu (WSL-Integration): make, bash, docker compose         │
                                       └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -66,42 +67,36 @@ Ollama stellt unter `http://ollama:11434/v1/` eine OpenAI-kompatible API bereit,
 `/v1/chat/completions` und `/v1/embeddings`. Laut offizieller Doku ist diese Schicht noch
 „experimental“. Deshalb pinnen wir die Ollama-Version.
 
-### Windows-Setup: alles in WSL2, ohne Docker Desktop
+### Windows-Setup mit Rancher Desktop
 
-**Empfehlung:** Ubuntu in WSL2, darin Docker Engine. Ollama läuft als Container im selben
-Compose-Stack.
-
-Warum:
-- **Weniger RAM:** Docker Desktop braucht eigene Backend-Prozesse und eine eigene
-  Oberfläche. Das fällt hier weg.
-- **Ein Speicherlimit für alles:** Wir setzen genau ein Limit für die WSL-VM in
-  `.wslconfig`. Windows behält den Rest.
-- **Keine Lizenzfrage:** Docker Desktop ist für Firmen ab 250 Mitarbeitenden oder ab
-  10 Mio. $ Umsatz kostenpflichtig. Docker Engine ist es nicht.
-- **Ein Befehl:** `make up` startet auch Ollama. Es gibt keine Host-Netzwerk-Tricks und
-  keine Firewall-Freigaben.
-- **Bash und Makefile** laufen in Ubuntu ohne Umwege.
-- Der Browser unter Windows erreicht die Demo über `http://localhost`. WSL leitet die Ports
-  standardmäßig weiter.
+Rancher Desktop ist kostenlos und quelloffen, die aktuelle Version ist 1.24.x. Es nutzt
+WSL2. Ollama läuft als Container im selben Compose-Stack, deshalb brauchen wir keine
+Host-Netzwerk-Tricks und keine Firewall-Freigaben. Der Browser unter Windows erreicht die
+Demo über `http://localhost`.
 
 **Einrichtung (Phase 2):**
-1. `wsl --install -d Ubuntu-24.04` (braucht **Adminrechte**), danach Neustart.
-2. `%UserProfile%\.wslconfig` anlegen:
+1. WSL2 muss aktiviert sein, und Rancher Desktop braucht ggf. **Adminrechte** (siehe §11).
+   Danach Rancher Desktop installieren, Version in `versions.env` notieren.
+2. **Einstellungen** in Rancher Desktop:
+   - **Container Engine: `dockerd (moby)`**, nicht `containerd`. Dann gelten `docker` und
+     `docker compose` 1:1. Achtung: Ein späterer Wechsel der Engine verwirft die geladenen
+     Images.
+   - **Kubernetes: aus.** k3s würde unnötig RAM kosten.
+   - **WSL → Integrations:** Ubuntu aktivieren. Dann steht `docker` in Ubuntu zur
+     Verfügung, und dort laufen `make` und die Bash-Skripte.
+3. **Speicherlimit:** Unter Windows hat Rancher Desktop **keine** eigene RAM-Einstellung.
+   Das Limit gilt global für WSL und steht in `%UserProfile%\.wslconfig`:
    ```ini
    [wsl2]
-   memory=5GB   # Rest (~3 GB) bleibt für Windows + Browser
+   memory=5GB   # Rest (~3 GB) bleibt für Windows, Rancher-Oberfläche und Browser
    swap=4GB     # Sicherheitsnetz gegen Abstürze, langsam
    ```
-   Danach `wsl --shutdown`. Ob `autoMemoryReclaim` zusätzlich hilft und in welchem
-   Abschnitt die Option bei unserer WSL-Version steht, prüfen wir in Phase 2.
-3. In Ubuntu prüfen, ob `systemd` aktiv ist (Standard bei neuen Installationen). Dann
-   Docker Engine nach der offiziellen Anleitung „Install Docker Engine on Ubuntu“
-   installieren und `systemctl enable --now docker` ausführen.
-4. Repo **im Linux-Dateisystem** klonen (`~/f13-demo`), nicht unter `/mnt/c/…`. Sonst
+   Danach `wsl --shutdown` und Rancher Desktop neu starten. Ob `autoMemoryReclaim`
+   zusätzlich hilft, prüfen wir in Phase 2.
+4. Ubuntu installieren mit `wsl --install -d Ubuntu-24.04`, falls noch nicht vorhanden.
+   Das Repo **im Linux-Dateisystem** klonen (`~/f13-demo`), nicht unter `/mnt/c/…`. Sonst
    werden Dateizugriffe sehr langsam.
-
-**Rückfall:** Ist Docker Desktop schon installiert und lizenziert, geht es auch damit. Dann
-gilt das Limit aus `.wslconfig` ebenfalls, und Ollama bleibt im Container.
+5. Rauchtest in Ubuntu: `docker run --rm hello-world` und `docker compose version`
 
 ### Modellwahl für 8 GB
 
@@ -125,14 +120,16 @@ genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
 | --- | --- | --- |
 | Windows 11 und Desktop | 2,5 GB | Windows |
 | Browser (nur ein Tab) | 0,5 GB | Windows |
+| Rancher-Desktop-Oberfläche | 0,3–0,5 GB | Windows |
 | LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB | WSL |
 | Embedding-Modell | 0,6 GB | WSL |
 | F13-Dienste und Vektor-DB | 1,5–2 GB | WSL |
-| **Summe** | **7–8 GB, also knapp** | WSL-Limit 5 GB + 4 GB Swap |
+| **Summe** | **7,5–8,5 GB, also knapp** | WSL-Limit 5 GB + 4 GB Swap |
 
 ### Sparmaßnahmen
 
-- Kein Docker Desktop; das Setup steht oben.
+- Rancher Desktop: Kubernetes aus. Während der Vorführung das Fenster nur minimieren;
+  die App muss weiterlaufen.
 - Ollama-Einstellungen als `environment` im Compose-Service:
   - `OLLAMA_NUM_PARALLEL=1`
   - `OLLAMA_CONTEXT_LENGTH=4096`
@@ -233,7 +230,7 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 | Phase | Inhalt | Wann |
 | --- | --- | --- |
 | **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären, auch die Branding-Optionen. | Mi 21.10. |
-| **2. WSL, Docker, Ollama und Modelle** | WSL2 mit Ubuntu, `.wslconfig` und Docker Engine einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
+| **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes), `.wslconfig` und Ubuntu mit WSL-Integration einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
 | 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
 | **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |
@@ -312,9 +309,11 @@ f13-demo/
 - [Ollama – FAQ](https://docs.ollama.com/faq)
 - [WSL2 – Speicher begrenzen mit .wslconfig (OneUptime, 2026)](https://oneuptime.com/blog/post/2026-02-08-how-to-configure-docker-desktop-memory-and-cpu-limits-on-windows/markdown)
 - [WSL 2.0.0 – autoMemoryReclaim (ElevenForum)](https://www.elevenforum.com/t/windows-subsystem-for-linux-wsl-2-0-0-september-2023-update-released.18072/)
-- [Docker Engine in WSL2 ohne Docker Desktop (DEV)](https://dev.to/felipecrs/simply-run-docker-on-wsl2-3o8)
-- [Docker-Lizenz: Engine vs. Desktop (SSD Nodes)](https://www.ssdnodes.com/learn/is-docker-free-engine-vs-desktop)
-- [Docker – Lizenz-FAQ](https://docker.io/pricing/faq/)
+- [Rancher Desktop – Container Engine (offizielle Doku)](https://docs.rancherdesktop.io/ui/preferences/container-engine/general/)
+- [Rancher Desktop – WSL-Einstellungen (offizielle Doku)](https://docs.rancherdesktop.io/1.7/ui/preferences/wsl/)
+- [Rancher Desktop – Releases](https://github.com/rancher-desktop/rancher-desktop/releases), [v1.24.0](https://newreleases.io/project/github/rancher-sandbox/rancher-desktop/release/v1.24.0)
+- [Rancher Desktop unter WSL2 (OneUptime, 2026)](https://oneuptime.com/blog/post/2026-03-20-rancher-desktop-wsl2/view)
+- [Rancher Desktop – RAM unter Windows nur per .wslconfig (Rancher Slack)](https://slack-archive.rancher.com/t/8505719/hi-team-how-do-we-adjust-the-virtual-memory-in-rancher-deskt)
 - [Ollama – Umgebungsvariablen (DEV)](https://dev.to/threesevenths/ollama-environment-variables-362j)
 - [Ollama – Out-of-Memory-Fehler (LocalAIMaster)](https://localaimaster.com/blog/ollama-out-of-memory-errors)
 - [Best CPU-only local LLMs 2026 – Popular AI](https://www.popularai.org/p/best-cpu-only-local-llm-2026)
