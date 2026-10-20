@@ -1,7 +1,7 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v6.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
-WSL (§11).
+Status: **Entwurf v7.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
+die Installation von Rancher Desktop (§11).
 
 ## 1. Ziel
 
@@ -52,51 +52,71 @@ Fachdiensten:
 ## 3. Architektur und Betrieb mit Windows und 8 GB RAM
 
 ```
-Windows 11 (ca. 3 GB)                 WSL2-VM (Limit 5 GB)
-┌──────────────────┐                  ┌──────────────────────────────────────────────────────────────┐
-│ Browser          │── localhost ───► │ Rancher Desktop: dockerd (moby), Kubernetes AUS              │
-│ http://localhost │                  │  Frontend ─► Core (APISIX) ─┬─► Chat ──────────────┐         │
-│                  │                  │                             ├─► Summary ─► Parser  ├─► Ollama│
-│ Rancher Desktop  │                  │                             └─► RAG ─► Vektor-DB ──┘   :11434│
-│ (Oberfläche)     │                  │                    LLM (2–3 B, Q4) + granite-embedding:278m  │
-└──────────────────┘                  │ Ubuntu (WSL-Integration): make, bash, docker compose         │
-                                      └──────────────────────────────────────────────────────────────┘
+Windows 11                                                   Rancher Desktop (intern: eigene WSL2-VM, Limit 5 GB)
+┌───────────────────────────────┐                            ┌───────────────────────────────────────────────────────────────┐
+│ Browser → http://localhost    │──────── localhost ───────► │ dockerd (moby), Kubernetes AUS                                │
+│ PowerShell → docker compose … │──────── docker CLI ──────► │  Frontend ─► Core (APISIX) ─┬─► Chat ─────────────┐           │
+│ Repo: C:\…\f13-demo           │── Bind-Mounts (config/, ─► │                             ├─► Summary ─► Parser ├─► Ollama  │
+│ Rancher-Desktop-Oberfläche    │   demo-data/)              │                             └─► RAG ─► Vektor-DB ─┘   :11434  │
+└───────────────────────────────┘                            │  Volumes: Modelle, Vektor-DB                                  │
+                                                             └───────────────────────────────────────────────────────────────┘
 ```
 
 Ollama stellt unter `http://ollama:11434/v1/` eine OpenAI-kompatible API bereit, mit
 `/v1/chat/completions` und `/v1/embeddings`. Laut offizieller Doku ist diese Schicht noch
 „experimental“. Deshalb pinnen wir die Ollama-Version.
 
-### Windows-Setup mit Rancher Desktop
+### Windows-Setup: Windows + Container, sonst nichts
 
-Rancher Desktop ist kostenlos und quelloffen, die aktuelle Version ist 1.24.x. Es nutzt
-WSL2. Ollama läuft als Container im selben Compose-Stack, deshalb brauchen wir keine
-Host-Netzwerk-Tricks und keine Firewall-Freigaben. Der Browser unter Windows erreicht die
-Demo über `http://localhost`.
+Alles läuft **unter Windows mit Rancher Desktop**:
+- Bedient wird nur über PowerShell und den Browser.
+- **Alles andere läuft in Containern**, auch Ollama und die Hilfsaufgaben.
+- Es gibt keine eigene Linux-Distribution, kein `make` und keine Bash-Skripte.
+
+> Hinweis: Rancher Desktop nutzt unter Windows intern immer WSL2 und bringt dafür seine
+> eigene, versteckte VM mit. Wir arbeiten darin aber nie direkt. Wichtig ist das nur für
+> das Speicherlimit, siehe Schritt 3.
 
 **Einrichtung (Phase 2):**
-1. WSL2 muss aktiviert sein, und Rancher Desktop braucht ggf. **Adminrechte** (siehe §11).
-   Danach Rancher Desktop installieren, Version in `versions.env` notieren.
+1. Rancher Desktop installieren. Voraussetzung ist, dass WSL2 in Windows aktiviert ist,
+   dafür braucht man ggf. **Adminrechte** (siehe §11). Version in `versions.env` notieren.
 2. **Einstellungen** in Rancher Desktop:
-   - **Container Engine: `dockerd (moby)`**, nicht `containerd`. Dann gelten `docker` und
-     `docker compose` 1:1. Achtung: Ein späterer Wechsel der Engine verwirft die geladenen
-     Images.
+   - **Container Engine: `dockerd (moby)`**, nicht `containerd`. Dann funktionieren
+     `docker` und `docker compose` direkt in PowerShell. Achtung: Ein späterer Wechsel der
+     Engine verwirft die geladenen Images.
    - **Kubernetes: aus.** k3s würde unnötig RAM kosten.
-   - **WSL → Integrations:** Ubuntu aktivieren. Dann steht `docker` in Ubuntu zur
-     Verfügung, und dort laufen `make` und die Bash-Skripte.
 3. **Speicherlimit:** Unter Windows hat Rancher Desktop **keine** eigene RAM-Einstellung.
-   Das Limit gilt global für WSL und steht in `%UserProfile%\.wslconfig`:
+   Das Limit steht in `%UserProfile%\.wslconfig`:
    ```ini
    [wsl2]
    memory=5GB   # Rest (~3 GB) bleibt für Windows, Rancher-Oberfläche und Browser
    swap=4GB     # Sicherheitsnetz gegen Abstürze, langsam
    ```
-   Danach `wsl --shutdown` und Rancher Desktop neu starten. Ob `autoMemoryReclaim`
-   zusätzlich hilft, prüfen wir in Phase 2.
-4. Ubuntu installieren mit `wsl --install -d Ubuntu-24.04`, falls noch nicht vorhanden.
-   Das Repo **im Linux-Dateisystem** klonen (`~/f13-demo`), nicht unter `/mnt/c/…`. Sonst
-   werden Dateizugriffe sehr langsam.
-5. Rauchtest in Ubuntu: `docker run --rm hello-world` und `docker compose version`
+   Danach in PowerShell `wsl --shutdown` ausführen und Rancher Desktop neu starten. Ob
+   `autoMemoryReclaim` zusätzlich hilft, prüfen wir in Phase 2.
+4. Repo ganz normal unter Windows klonen, z. B. nach `C:\Projekte\f13-demo`.
+   - Per Bind-Mount gehen nur kleine Dateien (`config/`, `demo-data/`) in die Container.
+     Das bleibt schnell genug.
+   - Modelle und Vektor-DB liegen in Docker-Volumes, also in der VM, und sind dort schnell.
+5. Rauchtest in PowerShell: `docker run --rm hello-world` und `docker compose version`
+
+### Bedienung: nur `docker compose`
+
+| Aufgabe | Befehl (PowerShell) |
+| --- | --- |
+| Starten | `docker compose up -d` |
+| Status und Health | `docker compose ps`. Healthchecks sind in der Compose-Datei definiert. |
+| Modelle laden (einmalig) | `docker compose run --rm modelle-laden` |
+| Wissensbasis indexieren | `docker compose run --rm rag-index` |
+| Warm-up vor der Vorführung | `docker compose run --rm warmup` |
+| Zurücksetzen (Chat-Verlauf, Uploads) | `docker compose run --rm reset` |
+| Stoppen | `docker compose down`. **Ohne `-v`**, sonst sind die Modelle weg. |
+
+Die Hilfsaufgaben sind kleine Container (z. B. ein `curl`-Image) mit dem Compose-Profil
+`werkzeuge`. Sie starten deshalb nicht mit `up`.
+
+So braucht es **keine PowerShell-Skripte**, die die Ausführungsrichtlinie auf
+Firmenrechnern oft blockiert.
 
 ### Modellwahl für 8 GB
 
@@ -121,10 +141,10 @@ genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
 | Windows 11 und Desktop | 2,5 GB | Windows |
 | Browser (nur ein Tab) | 0,5 GB | Windows |
 | Rancher-Desktop-Oberfläche | 0,3–0,5 GB | Windows |
-| LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB | WSL |
-| Embedding-Modell | 0,6 GB | WSL |
-| F13-Dienste und Vektor-DB | 1,5–2 GB | WSL |
-| **Summe** | **7,5–8,5 GB, also knapp** | WSL-Limit 5 GB + 4 GB Swap |
+| LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB | Container |
+| Embedding-Modell | 0,6 GB | Container |
+| F13-Dienste und Vektor-DB | 1,5–2 GB | Container |
+| **Summe** | **7,5–8,5 GB, also knapp** | Container-Limit 5 GB + 4 GB Swap |
 
 ### Sparmaßnahmen
 
@@ -230,14 +250,14 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 | Phase | Inhalt | Wann |
 | --- | --- | --- |
 | **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären, auch die Branding-Optionen. | Mi 21.10. |
-| **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes), `.wslconfig` und Ubuntu mit WSL-Integration einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
+| **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes) und `.wslconfig` einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
 | 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
-| **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
+| **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `docker compose up -d`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |
 | **5. Wissensbasis** | Die 6 Dokumente und den Antwortschlüssel schreiben, PDFs erzeugen. Kann parallel laufen. | bis Do 29.10. |
 | **6. RAG** | RAG-Dienst und Vektor-DB einbinden, indexieren, Testfragen durchlaufen lassen, Trefferquote notieren | Do 29.10. – Mo 02.11. |
 | **7. Branding** | Nur per Konfiguration, höchstens 2 Std. (§5) | Di 03.11. |
-| **8. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, `scripts/warmup.sh`; Generalprobe auf dem Demo-Rechner und Bildschirmaufnahme als Fallback | Mi 04.11. – Do 05.11. |
+| **8. Vorführreife** | `docs/DEMO-SKRIPT.md`; Healthchecks und die Hilfscontainer `warmup` und `reset`; Generalprobe auf dem Demo-Rechner und Bildschirmaufnahme als Fallback | Mi 04.11. – Do 05.11. |
 | Puffer | Für alles, was länger dauert | Fr 06.11. |
 | 🎬 **Demo** | | **Mo 09.11.** |
 
@@ -256,14 +276,13 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 ```
 f13-demo/
 ├── README.md                 # Schnellstart (Deutsch)
-├── Makefile                  # make up / down / check / reset / index
-├── docker-compose.yml        # kompletter Demo-Stack (mit mem_limit)
+├── .gitattributes            # LF-Zeilenenden für alles, was in Container gemountet wird
+├── docker-compose.yml        # kompletter Demo-Stack, mit mem_limit, Healthchecks und Werkzeug-Profil
 ├── versions.env              # gepinnte F13-Images, Ollama-Version, Modell-Tags
 ├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, ggf. Branding)
 ├── demo-data/
 │   ├── summary/              # Dokument für die Zusammenfassung
 │   └── rag/                  # Pokémon-Wissensbasis + testfragen.md
-├── scripts/                  # healthcheck.sh, reset.sh, warmup.sh
 └── docs/
     ├── PLAN.md               # dieses Dokument
     ├── DEMO-SKRIPT.md
@@ -276,8 +295,10 @@ f13-demo/
 | Risiko | Gegenmaßnahme |
 | --- | --- |
 | **8 GB RAM reichen nicht** | Sparmaßnahmen aus §3; Go/No-Go am 23.10. mit Rückfallstufen |
-| Keine Adminrechte, oder WSL ist per Firmenrichtlinie gesperrt | **Sofort klären** (§11). Ohne WSL läuft der F13-Stack nicht. |
-| Langsame Dateizugriffe unter WSL | Repo im Linux-Dateisystem (`~/`), nicht unter `/mnt/c` |
+| Keine Adminrechte, oder WSL ist per Firmenrichtlinie gesperrt | **Sofort klären** (§11). Ohne WSL2 läuft Rancher Desktop unter Windows nicht. |
+| Windows-Zeilenenden (CRLF) zerstören Configs oder Skripte im Container | `.gitattributes` mit `* text=auto eol=lf` |
+| Langsame Bind-Mounts von `C:\` | Nur kleine Dateien mounten; Modelle und DB liegen in Volumes |
+| `docker compose down -v` löscht die Modelle (mehrere GB neu laden) | In README und DEMO-SKRIPT deutlich warnen; `reset` löscht nur die Demo-Daten |
 | Antworten auf CPU zu langsam | Kleines Modell, 4k Kontext, kurze Dokumente, Warm-up vor der Vorführung |
 | Kleines Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
 | RAG-Dienst erwartet ein Embedding-Modell oder eine DB, die nicht zu Ollama passt | Phase 1 klärt das. Notfalls läuft das Embedding-Modell als eigener Container. |
@@ -288,9 +309,9 @@ f13-demo/
 
 ## 11. Noch offen
 
-1. **Adminrechte und WSL:** Darf ich auf dem Demo-Rechner WSL2 installieren, oder ist es
-   schon installiert? Wenn nicht: rechtzeitig bei der IT anfragen, **spätestens bis
-   Mi 21.10.**
+1. **Adminrechte:** Darf ich auf dem Demo-Rechner Rancher Desktop installieren, und ist
+   WSL2 erlaubt bzw. schon aktiviert? Wenn nicht: rechtzeitig bei der IT anfragen,
+   **spätestens bis Mi 21.10.**
 
 ## Quellen
 
