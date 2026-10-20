@@ -1,7 +1,7 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v7.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
-die Installation von Rancher Desktop (§11).
+Status: **Umsetzung gestartet (v8).** Stack, Werkzeuge, Wissensbasis und Doku liegen im Repo.
+Was noch nicht gegen das echte F13 geprüft ist, steht in [`VERIFIZIEREN.md`](VERIFIZIEREN.md).
 
 ## 1. Ziel
 
@@ -18,7 +18,7 @@ verstehe, selbst betreiben kann und anderen vorführen kann.
 | Funktionen | Chat, Zusammenfassung, **RAG** |
 | RAG-Thema | **Pokémon** (siehe §4) |
 | Sprache | **Nur Deutsch**: Oberfläche, Wissensbasis, Prompts, Doku |
-| Branding | Nur wenn F13 es per Konfiguration erlaubt (siehe §5) |
+| Branding | **Entfällt.** F13-Frontend v3.0.1 hat keine Branding-Konfiguration (siehe §5). |
 
 ## 2. Was ist F13?
 
@@ -45,7 +45,7 @@ Fachdiensten:
 > - OPA-Sidecar für Chat v3
 > - Welches Embedding-Modell und welche Vektor-DB RAG nutzt, und ob sich beides über
 >   Ollama betreiben lässt
-> - Welche Branding-Optionen es gibt
+> - ~~Welche Branding-Optionen es gibt~~: keine, siehe §5
 >
 > `gitlab.opencode.de` war in der Umgebung, in der dieser Plan entstand, gesperrt.
 
@@ -207,26 +207,15 @@ passend zum Embedding-Modell.
 | „Wer darf Meisterbälle ausgeben?“ | Dienstanweisung Inventur, Abschnitt Verschlusssachen |
 | **Gegenprobe:** dieselbe Frage im Chat **ohne** RAG | Das Modell rät oder weiß es nicht. Das zeigt den Unterschied. |
 
-## 5. Branding (nur wenn einfach)
+## 5. Branding: entfällt
 
-**Regel:** Wir branden **nur über die eingebaute Konfiguration von F13**, also z. B. Titel,
-Logo und Farben per Env-Variable oder Config-Datei. Kein eigenes Image, kein Wrapper, kein
-Patch. Wenn F13 dafür keine Option hat, bleibt das Standard-Design.
+**Regel:** Wir branden nur, wenn F13 es über die eingebaute Konfiguration erlaubt. Kein
+eigenes Image, kein Wrapper, kein Patch.
 
-Zeitlimit: **höchstens 2 Stunden** in Phase 7.
-
-Falls Optionen vorhanden sind, verwenden wir nur das, was sich einstellen lässt:
-
-| Element | Wert |
-| --- | --- |
-| Titel | „F13 · Pokédex-Edition“ |
-| Primärfarbe | Pokédex-Rot `#DC0A2D`, mit weißer Schrift (Kontrast 5,1:1) |
-| Akzentfarbe | Display-Blau `#30A7D7`, nur mit dunkler Schrift (6,3:1). **Nie** weiße Schrift darauf (2,75:1). |
-| Logo | Selbst gezeichnetes SVG: blaue „Pokédex-Linse“ und „F13“. Kein offizielles Logo. |
-| Begrüßungstext | „Ein wildes F13 erscheint! Wie kann ich helfen?“ |
-
-Die Antworten des Modells bleiben sachlich. Der Pokémon-Stil kommt nicht in den
-Systemprompt.
+**Ergebnis der Recherche:** Das Frontend v3.0.1 liest beim Start nur wenige
+Env-Variablen, nämlich `API_URL`, Keycloak-Einstellungen und Chat-Limits. Optionen für
+Logo, Farben oder Titel gibt es nicht. Die Demo läuft deshalb im **Standard-Design von
+F13**. Der Pokémon-Bezug steckt in der Wissensbasis.
 
 ## 6. Ablauf der Vorführung (ca. 10–12 Min.)
 
@@ -249,14 +238,14 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 
 | Phase | Inhalt | Wann |
 | --- | --- | --- |
-| **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären, auch die Branding-Optionen. | Mi 21.10. |
+| **1. Erkundung** | Checkliste [`VERIFIZIEREN.md`](VERIFIZIEREN.md) abarbeiten. Mit `docker compose run --rm versionen` die echten Image-Tags ermitteln und in `.env` pinnen. | Mi 21.10. |
 | **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes) und `.wslconfig` einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
 | 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
 | **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `docker compose up -d`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |
 | **5. Wissensbasis** | Die 6 Dokumente und den Antwortschlüssel schreiben, PDFs erzeugen. Kann parallel laufen. | bis Do 29.10. |
 | **6. RAG** | RAG-Dienst und Vektor-DB einbinden, indexieren, Testfragen durchlaufen lassen, Trefferquote notieren | Do 29.10. – Mo 02.11. |
-| **7. Branding** | Nur per Konfiguration, höchstens 2 Std. (§5) | Di 03.11. |
+| **7. ~~Branding~~** | Entfällt (§5). Die Zeit wird Puffer für RAG. | Di 03.11. |
 | **8. Vorführreife** | `docs/DEMO-SKRIPT.md`; Healthchecks und die Hilfscontainer `warmup` und `reset`; Generalprobe auf dem Demo-Rechner und Bildschirmaufnahme als Fallback | Mi 04.11. – Do 05.11. |
 | Puffer | Für alles, was länger dauert | Fr 06.11. |
 | 🎬 **Demo** | | **Mo 09.11.** |
@@ -302,9 +291,10 @@ f13-demo/
 | Antworten auf CPU zu langsam | Kleines Modell, 4k Kontext, kurze Dokumente, Warm-up vor der Vorführung |
 | Kleines Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
 | RAG-Dienst erwartet ein Embedding-Modell oder eine DB, die nicht zu Ollama passt | Phase 1 klärt das. Notfalls läuft das Embedding-Modell als eigener Container. |
+| Der Weg zum Befüllen der Wissensdatenbank (Ingestion) ist unbekannt | **Hauptweg ist der Dateimodus:** Die 6 PDFs werden in der Recherche hochgeladen. Der Datenbankmodus ist optional (siehe `VERIFIZIEREN.md`). |
 | Upstream-Doku unvollständig oder nicht passend zu v3 | Versionen pinnen, eigene Compose-Datei, Probleme in der README festhalten |
 | Login (Keycloak) blockiert | Für die Demo den Gastmodus nutzen. Keycloak würde zusätzlich RAM kosten. |
-| Zeitplan rutscht | Puffertag am 06.11.; Branding wird als Erstes gestrichen, danach die Zusammenfassung |
+| Zeitplan rutscht | Puffertag am 06.11. und der frei gewordene Branding-Tag; als Erstes fällt die Zusammenfassung weg |
 | Markenrecht Pokémon | Nur intern; nur eigene Texte und eigenes Logo; keine offiziellen Logos oder Bilder; keine Veröffentlichung |
 
 ## 11. Noch offen
