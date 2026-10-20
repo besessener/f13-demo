@@ -60,17 +60,10 @@ Beenden mit `stopp.cmd`.
 
 ## Konfiguration
 
-Versionen, Ports und Modellnamen stehen in `.env`. Die F13-Dienste lesen ihre Modelle
-aber aus YAML. Ein Modellwechsel braucht deshalb Änderungen an drei Stellen:
-- `.env`
-- `config/f13/llm_models.yml`
-- `config/chat/llm_models.yml`
-
-Danach:
-
-```powershell
-docker compose up -d --force-recreate chat summary rag
-```
+Versionen, Ports und Modelle stehen in `.env`. Für ein anderes Sprachmodell nur
+`LLM_MODELL` ändern und `start.cmd` erneut ausführen. Beim Start legt `modelle-laden` daraus
+die festen Namen `f13-sprachmodell` und `f13-embedding` an, unter denen F13 die Modelle
+anspricht. `LLM_MAX_TOKENS` begrenzt die Länge jeder Antwort.
 
 ## Fehlerbehebung
 

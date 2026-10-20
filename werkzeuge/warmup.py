@@ -18,8 +18,8 @@ import urllib.error
 import urllib.request
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
-EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
+LLM_MODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
+EMBEDDING_MODELL = os.environ.get("EMBEDDING", "f13-embedding")
 
 # Laden und Rechnen auf der CPU kann lange dauern.
 TIMEOUT_S = 900

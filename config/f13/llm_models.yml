@@ -4,17 +4,16 @@
 # Gemountet (einzeln, read-only) nach /<dienst>/configs/llm_models.yml
 # (in der CI mit den echten F13-Images bestätigt).
 #
-# Modellwechsel: Diese Datei kann .env NICHT lesen. Wer LLM_MODELL oder
-# EMBEDDING_MODELL in .env ändert, muss "model" hier UND in
-# config/chat/llm_models.yml anpassen.
+# Modellwechsel: nur in .env (LLM_MODELL, EMBEDDING_MODELL). "f13-sprachmodell" und
+# "f13-embedding" sind feste Namen, die werkzeuge/modelle_laden.py beim Start anlegt.
 #
 # Ollama läuft mit OLLAMA_CONTEXT_LENGTH=4096. context_length ist das Gesamtfenster
 # (Eingabe + Ausgabe) und darf 4096 nicht überschreiten.
 
 chat:
   llama_lokal:
-    label: "Llama 3.2 3B (lokal)"
-    model: "llama3.2:3b"
+    label: "Lokales Sprachmodell"
+    model: "f13-sprachmodell"
     prompt_map: base_assistant
     is_remote: false
     context_length: 4096
@@ -29,8 +28,8 @@ chat:
 
 summary:
   llama_lokal:
-    label: "Llama 3.2 3B (lokal)"
-    model: "llama3.2:3b"
+    label: "Lokales Sprachmodell"
+    model: "f13-sprachmodell"
     prompt_map: map_reduce_summarizer
     is_remote: false
     context_length: 4096
@@ -47,8 +46,8 @@ summary:
 
 rag:
   llama_lokal:
-    label: "Llama 3.2 3B (lokal)"
-    model: "llama3.2:3b"
+    label: "Lokales Sprachmodell"
+    model: "f13-sprachmodell"
     prompt_map: base_answer_generator
     is_remote: false
     api:
@@ -63,8 +62,8 @@ rag:
 
 embedding:
   granite_lokal: &granite
-    label: "Granite Embedding 278M (lokal)"
-    model: "granite-embedding:278m"
+    label: "Lokales Embedding-Modell"
+    model: "f13-embedding"
     is_remote: false
     api:
       url: http://ollama:11434/v1

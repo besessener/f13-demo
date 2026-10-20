@@ -156,7 +156,7 @@ def main():
                 laden(modell)
                 selbst_geladen = True
             # Andere Modelle entladen, damit der RAM-Wert nur dieses Modell zeigt.
-            for anderes in (LLM_MODELL, EMBEDDING_MODELL, *MODELLE):
+            for anderes in (LLM_MODELL, EMBEDDING_MODELL, "f13-sprachmodell", "f13-embedding", *MODELLE):
                 if anderes != modell:
                     entladen(anderes)
             ergebnisse = messen(modell, liste)

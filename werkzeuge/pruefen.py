@@ -19,8 +19,8 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
 ELASTICSEARCH_URL = os.environ.get("ELASTICSEARCH_URL", "http://elasticsearch:9200").rstrip("/")
 CORE_URL = os.environ.get("CORE_URL", "http://core:8000").rstrip("/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://frontend:9999").rstrip("/")
-LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
-EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
+LLM_MODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
+EMBEDDING_MODELL = os.environ.get("EMBEDDING", "f13-embedding")
 
 # Die /llms-Endpunkte fragen ggf. selbst Ollama ab; auf der CPU kann das dauern.
 TIMEOUT_S = int(os.environ.get("PRUEFEN_TIMEOUT_S", "30"))

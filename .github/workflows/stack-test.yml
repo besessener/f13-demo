@@ -84,8 +84,8 @@ jobs:
         run: |
           # Ausgabeordner gehört dem Runner, nicht root (sonst scheitert die Diagnose).
           mkdir -p ausgabe/logs
-          sed -i "s/llama3\.2:3b/${CI_LLM_MODELL}/g" .env config/f13/llm_models.yml config/chat/llm_models.yml
-          grep -rn "${CI_LLM_MODELL}" .env config/
+          sed -i "s/^LLM_MODELL=.*/LLM_MODELL=${CI_LLM_MODELL}/" .env
+          grep -n "^LLM_MODELL" .env
 
       - name: Verfügbare F13-Versionen (nur Info)
         continue-on-error: true

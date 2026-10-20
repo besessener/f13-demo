@@ -25,6 +25,13 @@ import urllib.request
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
 LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
 EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
+# Feste Namen, die F13 verwendet (config/*/llm_models.yml). Sie werden bei jedem Start aus
+# den Modellen in .env abgeleitet. So reicht für einen Modellwechsel eine Zeile in .env.
+SPRACHMODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
+EMBEDDING = os.environ.get("EMBEDDING", "f13-embedding")
+# Harte Obergrenze für jede Antwort. Ohne sie schreiben kleine Modelle manchmal endlos
+# weiter (in der CI bei der Zusammenfassung beobachtet).
+MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "1024"))
 
 # Wartezeit auf das nächste Lebenszeichen von Ollama (nicht für den ganzen Download).
 LESE_TIMEOUT_S = 600
@@ -162,6 +169,27 @@ def modell_laden(name):
     return False
 
 
+def ableiten(name, basis, parameter):
+    """Legt in Ollama ein Modell „name“ an, das auf „basis“ verweist (kein neuer Download)."""
+    nutzlast = {"model": name, "from": basis, "stream": False}
+    if parameter:
+        nutzlast["parameters"] = parameter
+    anfrage = urllib.request.Request(
+        f"{OLLAMA_URL}/api/create", data=json.dumps(nutzlast).encode("utf-8"),
+        headers={"Content-Type": "application/json"})
+    try:
+        with OPENER.open(anfrage, timeout=LESE_TIMEOUT_S) as antwort:
+            status = json.loads(antwort.read().decode("utf-8") or "{}").get("status")
+    except Exception as fehler:  # noqa: BLE001
+        print(f"  ✘ „{name}“ konnte nicht angelegt werden: {fehlertext(fehler)}", flush=True)
+        return False
+    if status != "success":
+        print(f"  ✘ „{name}“: unerwartete Antwort von Ollama ({status})", flush=True)
+        return False
+    print(f"  ✔ „{name}“ → „{basis}“ {parameter or ''}", flush=True)
+    return True
+
+
 def main():
     print("Modelle laden")
     print(f"  Ollama:    {OLLAMA_URL}")
@@ -179,6 +207,11 @@ def main():
         else:
             print("\nDas dauert beim ersten Mal je nach Leitung einige Minuten (ca. 2,6 GB).")
             ergebnisse[name] = modell_laden(name)
+
+    if all(ergebnisse.values()):
+        print("\nFeste Namen für F13 anlegen:")
+        ergebnisse[SPRACHMODELL] = ableiten(SPRACHMODELL, LLM_MODELL, {"num_predict": MAX_TOKENS})
+        ergebnisse[EMBEDDING] = ableiten(EMBEDDING, EMBEDDING_MODELL, None)
 
     print("\nErgebnis:")
     for name, ok in ergebnisse.items():

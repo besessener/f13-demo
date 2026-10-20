@@ -51,6 +51,10 @@ x-werkzeug-umgebung: &werkzeug-umgebung
   OLLAMA_URL: http://ollama:11434
   LLM_MODELL: ${LLM_MODELL}
   EMBEDDING_MODELL: ${EMBEDDING_MODELL}
+  LLM_MAX_TOKENS: ${LLM_MAX_TOKENS}
+  # Feste Namen, unter denen F13 die Modelle anspricht (siehe werkzeuge/modelle_laden.py).
+  SPRACHMODELL: f13-sprachmodell
+  EMBEDDING: f13-embedding
 
 # Hilfsaufgaben: starten NICHT mit "up", nur mit "docker compose run --rm <name>".
 x-werkzeug: &werkzeug

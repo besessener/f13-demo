@@ -13,8 +13,8 @@ import uuid
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
 CORE_URL = os.environ.get("CORE_URL", "http://core:8000").rstrip("/")
-LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
-EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
+LLM_MODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
+EMBEDDING_MODELL = os.environ.get("EMBEDDING", "f13-embedding")
 F13_MODELL_ID = os.environ.get("F13_MODELL_ID", "llama_lokal")
 DATEN = os.environ.get("DEMO_DATEN", "/demo-data")
 TIMEOUT_S = int(os.environ.get("F13_TIMEOUT_S", "900"))
@@ -80,7 +80,7 @@ def zusammenfassung_datei(pfad):
 
 
 def recherche_dateien(pfade, frage):
-    """POST /rag/file – ANNAHME (ungeprüft): Feldnamen bis zur ersten OpenAPI-Auswertung geraten."""
+    """POST /rag/file – multipart: question, language_model, files (rag v3.1.1, in der CI geprüft)."""
     return multipart_senden(
         f"{CORE_URL}/rag/file",
         {"question": frage, "language_model": F13_MODELL_ID},
@@ -90,7 +90,7 @@ def recherche_dateien(pfade, frage):
 def ohne_rag(frage):
     """Gegenprobe: dieselbe Frage direkt an das Sprachmodell, ohne Dokumente."""
     return json_senden(f"{OLLAMA_URL}/api/chat", {
-        "model": LLM_MODELL, "stream": False,
+        "model": LLM_MODELL, "stream": False, "options": {"num_predict": 300},
         "messages": [{"role": "system", "content": "Antworte knapp auf Deutsch."},
                      {"role": "user", "content": frage}]})
 
@@ -101,6 +101,9 @@ def text_aus(antwort_text):
         daten = json.loads(antwort_text)
     except ValueError:
         return antwort_text.strip()
+    # RAG (/rag/file) antwortet mit einer Liste: [{"question", "answer", "sources", …}]
+    if isinstance(daten, list) and daten and isinstance(daten[0], dict):
+        daten = daten[0]
     if isinstance(daten, dict):
         for schluessel in ("response", "summary", "answer", "message", "content"):
             wert = daten.get(schluessel)
@@ -118,6 +121,8 @@ def quellen_aus(antwort_text):
     except ValueError:
         return []
     kandidaten = []
+    if isinstance(daten, list) and daten and isinstance(daten[0], dict):
+        daten = daten[0]
     if isinstance(daten, dict):
         for schluessel in ("sources", "documents", "quellen", "references"):
             if isinstance(daten.get(schluessel), list):
@@ -127,8 +132,12 @@ def quellen_aus(antwort_text):
     for eintrag in kandidaten:
         if isinstance(eintrag, dict):
             meta = eintrag.get("meta") or {}
-            name = (eintrag.get("source") or eintrag.get("title") or meta.get("source")
-                    or meta.get("file_name") or eintrag.get("url") or "")
+            # RAG v3.1.1: meta = {"Datei": "...", "Seite im Dokument": 2}
+            name = (meta.get("Datei") or eintrag.get("source") or eintrag.get("title")
+                    or meta.get("source") or meta.get("file_name") or eintrag.get("url") or "")
+            seite = meta.get("Seite im Dokument")
+            if name and seite:
+                name = f"{name}, S. {seite}"
             quellen.append(str(name) or json.dumps(eintrag, ensure_ascii=False)[:120])
         else:
             quellen.append(str(eintrag)[:120])

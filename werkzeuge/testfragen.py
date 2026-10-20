@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
+LLM_MODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
 TESTFRAGEN_DATEI = os.environ.get("TESTFRAGEN_DATEI", "/demo-data/rag/testfragen.md")
 
 SYSTEM_PROMPT = "Antworte knapp auf Deutsch."
