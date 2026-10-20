@@ -134,6 +134,9 @@ jobs:
           echo "::group::RAM pro Container"
           docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' || true
           echo "::endgroup::"
+          echo "::group::Eingebaute Konfiguration des RAG-Images"
+          docker compose run --rm --no-deps --entrypoint bash rag -c 'ls -la /rag/configs /rag/configs/* 2>&1 | head -40; for f in $(find /rag/configs -name "*.y*ml" | grep -v -e general.yml -e llm_models.yml); do echo "=== $f"; cat "$f"; done' || true
+          echo "::endgroup::"
           echo "::group::Namensauflösung im Compose-Netz"
           docker compose exec -T core getent hosts frontend rag summary chat || true
           echo "::endgroup::"

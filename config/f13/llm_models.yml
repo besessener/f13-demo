@@ -62,7 +62,7 @@ rag:
     max_chunks_to_use: 3
 
 embedding:
-  granite_lokal:
+  granite_lokal: &granite
     label: "Granite Embedding 278M (lokal)"
     model: "granite-embedding:278m"
     is_remote: false
@@ -76,14 +76,19 @@ embedding:
     document_splitter_config:
       split_length: 180
       split_overlap: 30
+  # Die im RAG-Image (v3.1.1) eingebaute Pipeline-Konfiguration verweist auf die ID
+  # "test_model_mock". Dieser Eintrag ist derselbe Granite-Eintrag unter diesem Namen.
+  test_model_mock: *granite
 
 # Der RAG-Dienst verlangt einen Reranker. Statt eines weiteren KI-Modells (zu viel RAM
 # für 8 GB) läuft ein kleiner Stichwort-Reranker: werkzeuge/reranker.py, Dienst "reranker".
 reranking:
-  stichwort:
+  stichwort: &stichwort
     label: "Stichwort-Reranker (lokal)"
     model: "stichwort-reranker"
     is_remote: false
     api:
       url: http://reranker:7997/v1
       health_check: /models
+  # Siehe Hinweis bei embedding: gleiche ID wie in der eingebauten Pipeline-Konfiguration.
+  test_model_mock: *stichwort
