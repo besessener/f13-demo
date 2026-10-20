@@ -12,3 +12,6 @@
 
 # Das Secret darf keinen Zeilenumbruch bekommen oder verändert werden.
 config/secrets/*.secret -text
+
+# Windows-Batchdateien brauchen CRLF, sonst verschluckt cmd.exe Zeilen.
+*.cmd text eol=crlf

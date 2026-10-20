@@ -1,0 +1,143 @@
+# Testet den kompletten F13-Demo-Stack auf einem GitHub-Runner (Linux, 4 CPU, 16 GB RAM).
+# Statt llama3.2:3b läuft hier ein sehr kleines Modell, damit der Test schnell bleibt.
+# Ergebnisse (Logs, RAM-Messung, OpenAPI-Beschreibungen) liegen als Artefakt "stack-ausgabe"
+# am jeweiligen Lauf.
+name: Stack-Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Sehr kleines Modell nur für die CI (~400 MB). Lokal bleibt llama3.2:3b.
+  CI_LLM_MODELL: qwen2.5:0.5b
+
+jobs:
+  statisch:
+    name: Statische Prüfungen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compose-Datei gültig
+        run: |
+          docker compose config -q
+          docker compose --profile werkzeuge config -q
+
+      - name: Python-Werkzeuge kompilieren
+        run: python3 -m py_compile werkzeuge/*.py
+
+      - name: YAML-Konfigurationen lesbar
+        run: |
+          pip install --quiet pyyaml
+          python3 - <<'EOF'
+          import glob, yaml
+          for datei in sorted(glob.glob("config/**/*.y*ml", recursive=True)):
+              with open(datei, encoding="utf-8") as f:
+                  yaml.safe_load(f)
+              print("✔", datei)
+          EOF
+
+      - name: APISIX-Routen enden mit "#END"
+        run: test "$(tail -n 1 config/core/apisix-guest.yaml)" = "#END"
+
+      - name: OPA-Richtlinie prüfen
+        run: |
+          OPA_VERSION=$(grep '^OPA_VERSION=' .env | cut -d= -f2)
+          docker run --rm -v "$PWD/config/opa/policies:/policies:ro" \
+            "openpolicyagent/opa:${OPA_VERSION}" check --strict /policies
+
+      - name: Zeilenenden (CRLF nur in .cmd)
+        run: |
+          for f in start.cmd stopp.cmd; do
+            file "$f" | grep -q CRLF || { echo "✘ $f braucht CRLF"; exit 1; }
+          done
+          if git ls-files -z -- ':!*.cmd' ':!*.pdf' | xargs -0 grep -lI $'\r' ; then
+            echo "✘ Diese Dateien haben CRLF, brauchen aber LF"; exit 1
+          fi
+          echo "✔ Zeilenenden in Ordnung"
+
+  stack:
+    name: Stack mit Mini-Modell
+    needs: statisch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Platz auf dem Runner schaffen
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Mini-Modell für die CI eintragen
+        run: |
+          sed -i "s/llama3\.2:3b/${CI_LLM_MODELL}/g" .env config/f13/llm_models.yml config/chat/llm_models.yml
+          grep -rn "${CI_LLM_MODELL}" .env config/
+
+      - name: Verfügbare F13-Versionen (nur Info)
+        continue-on-error: true
+        run: docker compose run --rm versionen
+
+      - name: Frontend bauen (aus dem Git-Tag)
+        run: docker compose build frontend
+
+      - name: Images laden
+        run: docker compose pull --ignore-buildable
+
+      - name: Stack starten (lädt auch die Modelle)
+        run: docker compose up -d --wait --wait-timeout 1200
+
+      - name: Dienste prüfen
+        if: ${{ !cancelled() }}
+        run: docker compose run --rm pruefen
+
+      - name: Rauchtest (echte Anfragen)
+        if: ${{ !cancelled() }}
+        run: docker compose run --rm rauchtest
+
+      - name: API-Beschreibungen sichern
+        if: ${{ !cancelled() }}
+        run: docker compose run --rm api-doku
+
+      - name: Diagnose sammeln
+        if: ${{ always() }}
+        run: |
+          mkdir -p ausgabe/logs
+          docker compose ps -a > ausgabe/ps.txt 2>&1 || true
+          docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' > ausgabe/ram.txt 2>&1 || true
+          for dienst in $(docker compose config --services); do
+            docker compose logs --no-color "$dienst" > "ausgabe/logs/${dienst}.log" 2>&1 || true
+          done
+          {
+            echo "## Container"
+            echo '```'
+            cat ausgabe/ps.txt
+            echo '```'
+            echo "## RAM pro Container"
+            echo '```'
+            cat ausgabe/ram.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ergebnisse hochladen
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: stack-ausgabe
+          path: ausgabe/
+          retention-days: 14
+
+      - name: Aufräumen
+        if: ${{ always() }}
+        run: docker compose down -v

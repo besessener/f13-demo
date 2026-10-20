@@ -55,9 +55,8 @@ Chat ___ s, Zusammenfassung ___ s, Recherche pro Frage ___ s.
 - [ ] „Nicht stören“ an, Windows-Updates pausiert (am Vortag)
 - [ ] Rancher Desktop läuft (Fenster nur minimieren, nicht beenden)
 - [ ] Alte Zustände zurücksetzen: `docker compose restart chat summary rag`
-- [ ] `docker compose up -d`, dann `docker compose ps`: alle Dienste `running`/`healthy`
-- [ ] `docker compose run --rm pruefen`: jede Zeile ✔
-- [ ] `docker compose run --rm warmup`
+- [ ] `start.cmd` doppelklicken. Es startet alles, prüft (jede Zeile ✔), wärmt vor und öffnet den Browser.
+- [ ] Zusätzlich `docker compose ps`: alle Dienste `running`/`healthy`
 - [ ] Fenster 2: `docker compose run --rm testfragen` laufen lassen, bis alle Antworten da
       sind (alle Fragen nacheinander auf der CPU, das dauert mehrere Minuten; daher früh
       starten); zu Frage 1 scrollen. (Umlaute kaputt? Vorher

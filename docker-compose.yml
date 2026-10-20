@@ -3,13 +3,16 @@
 # =============================================================================
 # Alle Befehle in PowerShell im Repo-Ordner ausführen:
 #
-#   docker compose up -d                       Starten (baut beim ersten Mal das Frontend)
+#   start.cmd (Doppelklick)                    Alles starten, prüfen, vorwärmen, Browser öffnen
+#   docker compose up -d --wait                Starten (baut beim ersten Mal das Frontend und
+#                                              lädt die Modelle; danach geht es offline)
 #   docker compose ps                          Status und Health aller Dienste
-#   docker compose run --rm modelle-laden      Modelle laden (einmalig, braucht Internet)
 #   docker compose run --rm warmup             Modelle vor der Vorführung vorladen
 #   docker compose run --rm pruefen            Alle Dienste prüfen (✔/✘)
 #   docker compose run --rm testfragen         Gegenprobe: Testfragen ohne RAG stellen
 #   docker compose run --rm versionen          Verfügbare F13-Image-Tags anzeigen (Internet)
+#   docker compose run --rm rauchtest          Echte Anfragen an Chat, Summary und RAG
+#   docker compose run --rm api-doku           API-Beschreibungen nach ausgabe/openapi/
 #   docker compose logs -f chat                Logs eines Dienstes ansehen
 #   docker compose down                        Stoppen – OHNE -v, sonst sind die Modelle weg
 #
@@ -158,8 +161,8 @@ services:
     depends_on:
       opa:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
+      modelle-laden:
+        condition: service_completed_successfully
 
   # --- Richtlinien für Chat-Werkzeuge (Chat startet nicht ohne OPA) ------------
   opa:
@@ -222,8 +225,8 @@ services:
       - ./config/f13/general.yml:/summary/configs/general.yml:ro
       - ./config/f13/llm_models.yml:/summary/configs/llm_models.yml:ro
     depends_on:
-      ollama:
-        condition: service_healthy
+      modelle-laden:
+        condition: service_completed_successfully
       parser:
         condition: service_started
 
@@ -245,8 +248,8 @@ services:
       - ./config/f13/general.yml:/rag/configs/general.yml:ro
       - ./config/f13/llm_models.yml:/rag/configs/llm_models.yml:ro
     depends_on:
-      ollama:
-        condition: service_healthy
+      modelle-laden:
+        condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
       parser:
@@ -274,14 +277,18 @@ services:
       retries: 10
       start_period: 60s
 
-  # --- Hilfsaufgaben (Profil "werkzeuge") -------------------------------------
-
+  # --- Einmal-Container beim Start -------------------------------------------
+  # Läuft bei jedem "up" kurz vor chat, summary und rag. Lädt nur fehlende Modelle,
+  # deshalb funktioniert der Start offline, sobald die Modelle einmal da sind.
   modelle-laden:
     <<: *werkzeug
+    profiles: []
     command: ["python", "/werkzeuge/modelle_laden.py"]
     depends_on:
       ollama:
         condition: service_healthy
+
+  # --- Hilfsaufgaben (Profil "werkzeuge") -------------------------------------
 
   warmup:
     <<: *werkzeug
@@ -325,6 +332,25 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+
+  # Echte Anfragen an Chat, Summary und RAG (über Core).
+  rauchtest:
+    <<: *werkzeug
+    command: ["python", "/werkzeuge/rauchtest.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - ./demo-data:/demo-data:ro
+    environment:
+      <<: *werkzeug-umgebung
+      CORE_URL: http://core:8000
+
+  # Schreibt die OpenAPI-Beschreibungen der F13-Dienste nach ./ausgabe/openapi/.
+  api-doku:
+    <<: *werkzeug
+    command: ["python", "/werkzeuge/api_doku.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - ./ausgabe:/ausgabe
 
 volumes:
   ollama-modelle:

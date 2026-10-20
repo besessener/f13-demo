@@ -1,6 +1,10 @@
-"""Lädt das Sprachmodell und das Embedding-Modell in Ollama (einmalig, braucht Internet).
+"""Lädt das Sprachmodell und das Embedding-Modell in Ollama.
 
-Aufruf (PowerShell):  docker compose run --rm modelle-laden
+Läuft automatisch bei jedem "docker compose up" als Einmal-Container vor chat, summary
+und rag. Bereits vorhandene Modelle werden NICHT erneut geladen, deshalb funktioniert der
+Start auch ohne Internet, sobald die Modelle einmal geladen sind.
+
+Von Hand (PowerShell):  docker compose run --rm modelle-laden
 
 Liest aus der Umgebung (gesetzt in docker-compose.yml / .env):
   OLLAMA_URL        z. B. http://ollama:11434
@@ -79,6 +83,27 @@ def fehlertext(fehler):
     return f"{type(fehler).__name__}: {fehler}"
 
 
+def vorhandene_modelle():
+    """Namen der Modelle, die Ollama schon hat (None, falls Ollama nicht antwortet)."""
+    try:
+        with OPENER.open(f"{OLLAMA_URL}/api/tags", timeout=30) as antwort:
+            daten = json.load(antwort)
+    except Exception as fehler:  # noqa: BLE001
+        print(f"  ✘ Ollama antwortet nicht: {fehlertext(fehler)}", flush=True)
+        return None
+    namen = set()
+    for modell in daten.get("models", []):
+        for schluessel in ("name", "model"):
+            if modell.get(schluessel):
+                namen.add(modell[schluessel])
+    return namen
+
+
+def ist_vorhanden(name, vorhanden):
+    # Ollama ergänzt fehlende Tags mit ":latest".
+    return name in vorhanden or (":" not in name and f"{name}:latest" in vorhanden)
+
+
 def modell_laden(name):
     """Lädt ein Modell per /api/pull und zeigt den Fortschritt. Gibt True bei Erfolg zurück."""
     print(f"\n▶ Lade Modell „{name}“ …", flush=True)
@@ -142,15 +167,24 @@ def main():
     print(f"  Ollama:    {OLLAMA_URL}")
     print(f"  Sprache:   {LLM_MODELL}")
     print(f"  Embedding: {EMBEDDING_MODELL}")
-    print("Das dauert beim ersten Mal je nach Leitung einige Minuten (ca. 2,6 GB).")
 
-    ergebnisse = {name: modell_laden(name) for name in (LLM_MODELL, EMBEDDING_MODELL)}
+    vorhanden = vorhandene_modelle()
+    if vorhanden is None:
+        return 1
+    ergebnisse = {}
+    for name in (LLM_MODELL, EMBEDDING_MODELL):
+        if ist_vorhanden(name, vorhanden):
+            print(f"\n✔ „{name}“ ist schon vorhanden – wird nicht neu geladen.", flush=True)
+            ergebnisse[name] = True
+        else:
+            print("\nDas dauert beim ersten Mal je nach Leitung einige Minuten (ca. 2,6 GB).")
+            ergebnisse[name] = modell_laden(name)
 
     print("\nErgebnis:")
     for name, ok in ergebnisse.items():
         print(f"  {'✔' if ok else '✘'} {name}")
     if all(ergebnisse.values()):
-        print("\nFertig. Weiter mit: docker compose run --rm warmup")
+        print("\nFertig.")
         return 0
     print("\nNicht alle Modelle konnten geladen werden. Internetverbindung prüfen und erneut")
     print("ausführen: docker compose run --rm modelle-laden  (bereits Geladenes bleibt erhalten)")

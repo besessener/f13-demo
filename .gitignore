@@ -16,3 +16,6 @@ docker-compose.override.yml
 
 # Messwerte-Rohdaten und Logs
 *.log
+
+# Ergebnisse der Werkzeuge (api-doku, CI)
+ausgabe/

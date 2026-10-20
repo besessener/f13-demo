@@ -7,9 +7,9 @@ Recherche (RAG). Für die Recherche gibt es eine erfundene Wissensbasis des „L
 Pokémon-Angelegenheiten Kanto“, damit sich beweisen lässt, dass die Antworten wirklich aus den
 Dokumenten stammen.
 
-> **Stand:** Der Stack ist nach bestem Wissen zusammengestellt, aber **noch nicht gegen die
-> echten F13-Images getestet**. Offene Annahmen und wie man sie prüft:
-> [docs/VERIFIZIEREN.md](docs/VERIFIZIEREN.md).
+> **Stand:** Der Stack wird bei jedem Push von GitHub Actions mit einem Mini-Modell gegen die
+> echten F13-Images getestet ([Stack-Test](../../actions/workflows/stack-test.yml)). Offene
+> Annahmen und wie man sie prüft: [docs/VERIFIZIEREN.md](docs/VERIFIZIEREN.md).
 
 ## Voraussetzungen
 
@@ -22,8 +22,8 @@ Dokumenten stammen.
 | Netz | Nur für die Einrichtung (Images, Modelle, Frontend-Build). Die Demo selbst läuft offline. |
 
 **Nicht nötig:** keine eigene WSL-Distribution (Ubuntu o. Ä.), kein `make`, keine Bash und
-**keine PowerShell-Skripte**. Alles läuft über `docker compose` in einer normalen
-PowerShell. Rancher Desktop bringt seine eigene, versteckte WSL2-VM mit, in der wir nie direkt
+**keine PowerShell-Skripte**. Gestartet wird mit `start.cmd`, einer Batch-Datei, die die
+PowerShell-Ausführungsrichtlinie nicht betrifft. Alles Weitere läuft über `docker compose`. Rancher Desktop bringt seine eigene, versteckte WSL2-VM mit, in der wir nie direkt
 arbeiten.
 
 `.wslconfig` (z. B. mit `notepad $env:USERPROFILE\.wslconfig`):
@@ -43,47 +43,32 @@ docker compose version
 
 Die restlichen ca. 3 GB bleiben für Windows, die Rancher-Desktop-Oberfläche und den Browser.
 
-## Schnellstart in 15 Minuten
+## Schnellstart
 
-Alle Befehle in PowerShell. Die 15 Minuten gelten ohne Downloadzeit: Beim ersten Mal kommen
-mehrere GB an Images und ca. 2,6 GB Modelle dazu.
-
-1. Repo klonen und hineinwechseln:
+1. Repo klonen (PowerShell):
    ```powershell
    git clone https://github.com/besessener/f13-demo.git C:\Projekte\f13-demo
-   cd C:\Projekte\f13-demo
    ```
-2. *Optional:* Image-Pfade und Tags im openCode-Registry prüfen (braucht Internet):
-   ```powershell
-   docker compose run --rm versionen
-   ```
-   Weichen Tags ab, die Werte in `.env` anpassen.
-3. Frontend bauen (braucht Internet, holt den Quellcode von `gitlab.opencode.de`):
-   ```powershell
-   docker compose build frontend
-   ```
-4. Alle übrigen Images laden:
-   ```powershell
-   docker compose pull --ignore-buildable
-   ```
-5. Ollama starten und die Modelle laden (einmalig):
-   ```powershell
-   docker compose up -d ollama
-   docker compose run --rm modelle-laden
-   ```
-6. Den ganzen Stack starten:
-   ```powershell
-   docker compose up -d
-   ```
-7. Prüfen, ob alles läuft (jede Zeile ✔, sonst 1–2 Minuten warten und wiederholen):
-   ```powershell
-   docker compose run --rm pruefen
-   ```
-8. Modelle in den Speicher laden, damit die erste Antwort schnell kommt:
-   ```powershell
-   docker compose run --rm warmup
-   ```
-9. Im Browser öffnen: **<http://localhost:9999>**
+2. Im Explorer `C:\Projekte\f13-demo\start.cmd` **doppelklicken** (oder in PowerShell
+   `.\start.cmd`).
+
+`start.cmd` erledigt alles und öffnet am Ende den Browser auf **<http://localhost:9999>**:
+
+| Schritt | Was passiert |
+| --- | --- |
+| 1 | Prüft, ob Rancher Desktop läuft |
+| 2 | `docker compose up -d --wait`: lädt Images, baut beim ersten Mal das Frontend aus dem Git-Tag, lädt fehlende Modelle (Einmal-Container `modelle-laden`) und wartet, bis alle Dienste bereit sind |
+| 3 | `docker compose run --rm pruefen`: prüft jeden Dienst (✔/✘) |
+| 4 | `docker compose run --rm warmup`: lädt die Modelle in den Speicher, damit die erste Antwort schnell kommt |
+
+**Beim ersten Mal** braucht es Internet und Geduld: mehrere GB Images plus ca. 2,6 GB
+Modelle. **Danach** startet alles auch offline, weil `modelle-laden` vorhandene Modelle
+nicht neu lädt.
+
+Beenden: `stopp.cmd` doppelklicken. Modelle und Daten bleiben erhalten.
+
+Falls ein Image nicht gefunden wird: `docker compose run --rm versionen` zeigt die
+verfügbaren F13-Tags. Den Wert dann in `.env` korrigieren.
 
 ## Alle Befehle
 
@@ -91,7 +76,8 @@ Immer im Repo-Ordner ausführen (`cd C:\Projekte\f13-demo`).
 
 | Aufgabe | Befehl |
 | --- | --- |
-| Starten | `docker compose up -d` |
+| Alles starten (empfohlen) | `start.cmd` (Doppelklick) |
+| Nur die Container starten | `docker compose up -d --wait` |
 | Status und Health | `docker compose ps` |
 | Logs eines Dienstes | `docker compose logs -f --tail 100 chat` (statt `chat` auch `core`, `summary`, `rag`, `parser`, `ollama` …) |
 | Alles prüfen | `docker compose run --rm pruefen` |
@@ -99,9 +85,11 @@ Immer im Repo-Ordner ausführen (`cd C:\Projekte\f13-demo`).
 | Modelle laden (einmalig) | `docker compose run --rm modelle-laden` |
 | Image-Tags im Registry nachsehen | `docker compose run --rm versionen` |
 | Gegenprobe ohne RAG | `docker compose run --rm testfragen` |
+| Echte Anfragen an Chat, Summary, RAG | `docker compose run --rm rauchtest` |
+| API-Beschreibungen der F13-Dienste | `docker compose run --rm api-doku` (→ `ausgabe/openapi/`) |
 | Zurücksetzen | `docker compose restart chat summary rag` |
 | RAM pro Container | `docker stats --no-stream` |
-| Stoppen | `docker compose down` |
+| Stoppen | `stopp.cmd` oder `docker compose down` |
 
 > ## ⚠️ NIEMALS `docker compose down -v`
 >
@@ -109,9 +97,27 @@ Immer im Repo-Ordner ausführen (`cd C:\Projekte\f13-demo`).
 > den Elasticsearch-Index und die Feedback-Datenbank. Zum Stoppen immer nur
 > `docker compose down`, zum Zurücksetzen `docker compose restart chat summary rag`.
 
-Die Werkzeuge (`pruefen`, `warmup`, `modelle-laden`, `versionen`, `testfragen`) sind kleine
-Python-Container im Compose-Profil `werkzeuge`. Sie starten nicht mit `up`, sondern nur mit
-`run --rm`. Ihr Image wird beim ersten Aufruf geladen; dafür braucht es einmal Netz.
+Die Werkzeuge (`pruefen`, `warmup`, `versionen`, `testfragen`, `rauchtest`, `api-doku`) sind
+kleine Python-Container im Compose-Profil `werkzeuge`. Sie starten nicht mit `up`, sondern nur
+mit `run --rm`. Ausnahme: `modelle-laden` läuft bei jedem `up` automatisch als
+Einmal-Container vor Chat, Summary und RAG.
+
+## Automatischer Test (GitHub Actions)
+
+Der Workflow [`.github/workflows/stack-test.yml`](.github/workflows/stack-test.yml) läuft
+bei jedem Push auf `main`, bei Pull Requests und von Hand (Actions → Stack-Test → Run
+workflow):
+
+1. **Statische Prüfungen:** Compose-Datei, Python, YAML, APISIX-`#END`, OPA-Richtlinie,
+   Zeilenenden
+2. **Stack mit Mini-Modell:**
+   - ersetzt `llama3.2:3b` durch `qwen2.5:0.5b`
+   - baut das Frontend, startet den kompletten Stack und führt `pruefen` und `rauchtest`
+     aus
+   - sichert die OpenAPI-Beschreibungen
+
+Logs, RAM pro Container und OpenAPI-Dateien hängen als Artefakt **stack-ausgabe** am Lauf.
+Der Runner hat 16 GB RAM, die RAM-Werte sind trotzdem ein guter Hinweis für den 8-GB-Laptop.
 
 ## Konfiguration (`.env`)
 
