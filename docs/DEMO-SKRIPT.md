@@ -280,6 +280,7 @@ Nach der Vorführung: WLAN wieder einschalten.
 
 | Lage | Was tun |
 | --- | --- |
+| Oberfläche hängt, Backend läuft | Fenster 3: `docker compose run --rm vorfuehrung` zeigt Chat, Zusammenfassung und Recherche (mit Gegenprobe) direkt im Terminal |
 | Ein Dienst antwortet nicht | Fenster 3: `docker compose ps`, `docker compose logs --tail 50 <dienst>`, `docker compose restart <dienst>`, danach `docker compose run --rm warmup` |
 | Alles ist sehr langsam | `docker stats --no-stream`; prüfen, ob doch noch Programme offen sind |
 | Nichts geht mehr | **Aufzeichnung zeigen** (Fenster 6) und live dazu erzählen |

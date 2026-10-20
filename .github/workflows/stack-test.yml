@@ -115,6 +115,10 @@ jobs:
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm smoke-test
 
+      - name: Vorführung im Terminal
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
+        run: docker compose run --rm -e FRAGEN=3 -e TEMPO=0 vorfuehrung
+
       - name: Modellvergleich (Mini-Modell, prüft nur das Werkzeug)
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm -e MODELLE="${CI_LLM_MODELL}" -e MAX_TOKENS=40 modellvergleich

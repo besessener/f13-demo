@@ -48,6 +48,8 @@ Beenden mit `stopp.cmd`.
 | Dienste prüfen | `docker compose run --rm pruefen` |
 | Modelle vorladen | `docker compose run --rm warmup` |
 | Echte Anfragen an Chat, Summary, RAG | `docker compose run --rm smoke-test` |
+| Vorführung im Terminal (ohne Browser) | `docker compose run --rm vorfuehrung` |
+| Modelle vergleichen (Tempo, RAM) | `docker compose run --rm modellvergleich` (→ `ausgabe/modellvergleich.md`) |
 | Testfragen ohne RAG (Gegenprobe) | `docker compose run --rm testfragen` |
 | Verfügbare F13-Image-Tags | `docker compose run --rm versionen` |
 | API-Beschreibungen der Dienste | `docker compose run --rm api-doku` (→ `ausgabe/openapi/`) |
