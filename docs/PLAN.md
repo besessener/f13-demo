@@ -98,7 +98,7 @@ Alles läuft **unter Windows mit Rancher Desktop**:
    - Per Bind-Mount gehen nur kleine Dateien (`config/`, `demo-data/`) in die Container.
      Das bleibt schnell genug.
    - Modelle und Vektor-DB liegen in Docker-Volumes, also in der VM, und sind dort schnell.
-5. Rauchtest in PowerShell: `docker run --rm hello-world` und `docker compose version`
+5. Smoke-Test in PowerShell: `docker run --rm hello-world` und `docker compose version`
 
 ### Bedienung: nur `docker compose`
 
@@ -239,7 +239,7 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 | Phase | Inhalt | Wann |
 | --- | --- | --- |
 | **1. Erkundung** | Checkliste [`VERIFIZIEREN.md`](VERIFIZIEREN.md) abarbeiten. Mit `docker compose run --rm versionen` die echten Image-Tags ermitteln und in `.env` pinnen. | Mi 21.10. |
-| **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes) und `.wslconfig` einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
+| **2. Rancher Desktop, Ollama und Modelle** | Rancher Desktop (moby, ohne Kubernetes) und `.wslconfig` einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Smoke-Test gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
 | 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
 | **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `docker compose up -d`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |

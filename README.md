@@ -85,7 +85,7 @@ Immer im Repo-Ordner ausführen (`cd C:\Projekte\f13-demo`).
 | Modelle laden (einmalig) | `docker compose run --rm modelle-laden` |
 | Image-Tags im Registry nachsehen | `docker compose run --rm versionen` |
 | Gegenprobe ohne RAG | `docker compose run --rm testfragen` |
-| Echte Anfragen an Chat, Summary, RAG | `docker compose run --rm rauchtest` |
+| Echte Anfragen an Chat, Summary, RAG | `docker compose run --rm smoke-test` |
 | API-Beschreibungen der F13-Dienste | `docker compose run --rm api-doku` (→ `ausgabe/openapi/`) |
 | Zurücksetzen | `docker compose restart chat summary rag` |
 | RAM pro Container | `docker stats --no-stream` |
@@ -97,7 +97,7 @@ Immer im Repo-Ordner ausführen (`cd C:\Projekte\f13-demo`).
 > den Elasticsearch-Index und die Feedback-Datenbank. Zum Stoppen immer nur
 > `docker compose down`, zum Zurücksetzen `docker compose restart chat summary rag`.
 
-Die Werkzeuge (`pruefen`, `warmup`, `versionen`, `testfragen`, `rauchtest`, `api-doku`) sind
+Die Werkzeuge (`pruefen`, `warmup`, `versionen`, `testfragen`, `smoke-test`, `api-doku`) sind
 kleine Python-Container im Compose-Profil `werkzeuge`. Sie starten nicht mit `up`, sondern nur
 mit `run --rm`. Ausnahme: `modelle-laden` läuft bei jedem `up` automatisch als
 Einmal-Container vor Chat, Summary und RAG.
@@ -112,7 +112,7 @@ workflow):
    Zeilenenden
 2. **Stack mit Mini-Modell:**
    - ersetzt `llama3.2:3b` durch `qwen2.5:0.5b`
-   - baut das Frontend, startet den kompletten Stack und führt `pruefen` und `rauchtest`
+   - baut das Frontend, startet den kompletten Stack und führt `pruefen` und `smoke-test`
      aus
    - sichert die OpenAPI-Beschreibungen
 

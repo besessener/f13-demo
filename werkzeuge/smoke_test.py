@@ -1,6 +1,6 @@
-"""Rauchtest: schickt je eine echte Anfrage an Ollama und über Core an Chat, Summary und RAG.
+"""Smoke-Test: schickt je eine echte Anfrage an Ollama und über Core an Chat, Summary und RAG.
 
-Aufruf (PowerShell):  docker compose run --rm rauchtest
+Aufruf (PowerShell):  docker compose run --rm smoke-test
 
 Anders als "pruefen" (nur erreichbar ja/nein) prüft dieser Test, ob die Dienste wirklich
 antworten. Auf der CPU kann das einige Minuten dauern.
@@ -26,7 +26,7 @@ LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
 EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
 F13_MODELL_ID = os.environ.get("F13_MODELL_ID", "llama_lokal")
 DATEN = os.environ.get("DEMO_DATEN", "/demo-data")
-TIMEOUT_S = int(os.environ.get("RAUCHTEST_TIMEOUT_S", "900"))
+TIMEOUT_S = int(os.environ.get("SMOKE_TEST_TIMEOUT_S", "900"))
 
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -133,7 +133,7 @@ TESTS = [
 
 
 def main():
-    print(f"Rauchtest  (Sprachmodell {LLM_MODELL}, F13-Modell-ID {F13_MODELL_ID})\n")
+    print(f"Smoke-Test  (Sprachmodell {LLM_MODELL}, F13-Modell-ID {F13_MODELL_ID})\n")
     fehler = 0
     for name, test in TESTS:
         print(f"▶ {name} …", flush=True)

@@ -11,7 +11,7 @@
 #   docker compose run --rm pruefen            Alle Dienste prüfen (✔/✘)
 #   docker compose run --rm testfragen         Gegenprobe: Testfragen ohne RAG stellen
 #   docker compose run --rm versionen          Verfügbare F13-Image-Tags anzeigen (Internet)
-#   docker compose run --rm rauchtest          Echte Anfragen an Chat, Summary und RAG
+#   docker compose run --rm smoke-test         Echte Anfragen an Chat, Summary und RAG
 #   docker compose run --rm api-doku           API-Beschreibungen nach ausgabe/openapi/
 #   docker compose logs -f chat                Logs eines Dienstes ansehen
 #   docker compose down                        Stoppen – OHNE -v, sonst sind die Modelle weg
@@ -334,9 +334,9 @@ services:
         condition: service_healthy
 
   # Echte Anfragen an Chat, Summary und RAG (über Core).
-  rauchtest:
+  smoke-test:
     <<: *werkzeug
-    command: ["python", "/werkzeuge/rauchtest.py"]
+    command: ["python", "/werkzeuge/smoke_test.py"]
     volumes:
       - ./werkzeuge:/werkzeuge:ro
       - ./demo-data:/demo-data:ro

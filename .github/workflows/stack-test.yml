@@ -102,9 +102,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: docker compose run --rm pruefen
 
-      - name: Rauchtest (echte Anfragen)
+      - name: Smoke-Test (echte Anfragen)
         if: ${{ !cancelled() }}
-        run: docker compose run --rm rauchtest
+        run: docker compose run --rm smoke-test
 
       - name: API-Beschreibungen sichern
         if: ${{ !cancelled() }}
