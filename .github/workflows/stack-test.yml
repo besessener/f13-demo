@@ -115,6 +115,26 @@ jobs:
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm smoke-test
 
+      # Artefakte lassen sich nicht überall herunterladen; deshalb die wichtigsten
+      # Diagnosen zusätzlich direkt ins Job-Log schreiben.
+      - name: Diagnose im Log
+        if: ${{ always() && steps.start.outcome != 'skipped' }}
+        run: |
+          echo "::group::docker compose ps -a"
+          docker compose ps -a || true
+          echo "::endgroup::"
+          echo "::group::RAM pro Container"
+          docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' || true
+          echo "::endgroup::"
+          echo "::group::Namensauflösung im Compose-Netz"
+          docker compose exec -T core getent hosts frontend rag summary chat || true
+          echo "::endgroup::"
+          for dienst in rag summary chat parser frontend core; do
+            echo "::group::Logs: $dienst (letzte 150 Zeilen)"
+            docker compose logs --no-color --tail 150 "$dienst" || true
+            echo "::endgroup::"
+          done
+
       - name: Diagnose sammeln
         if: ${{ always() }}
         run: |

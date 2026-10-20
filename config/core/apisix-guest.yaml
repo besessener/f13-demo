@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MPL-2.0
 # Quelle: F13 core v3.0.0 (apisix-guest.yaml), angepasst für f13-demo:
 #   - transcription und tusd entfernt (in der Demo nicht installiert)
+#   - lange Timeouts für chat, summary und rag: Auf der CPU dauert eine Antwort oft länger
+#     als die 60 s, die APISIX sonst abwartet (dann käme "504 Gateway Time-out").
 # Gemountet nach /usr/local/apisix/conf/apisix-guest.yaml.
 # WICHTIG: Die Datei muss mit der Zeile "#END" enden, sonst lädt APISIX sie nicht.
 
@@ -17,6 +19,10 @@ upstreams:
     type: roundrobin
     nodes:
       "rag:8000": 1
+    timeout:
+      connect: 10
+      send: 900
+      read: 900
 
 services:
   - id: healthcheck
@@ -49,6 +55,10 @@ services:
       type: roundrobin
       nodes:
         "chat:8000": 1
+      timeout:
+        connect: 10
+        send: 900
+        read: 900
     plugins:
       proxy-rewrite:
         regex_uri: ["^/chat/(.*)$", "/$1"]
@@ -58,6 +68,10 @@ services:
       type: roundrobin
       nodes:
         "summary:8000": 1
+      timeout:
+        connect: 10
+        send: 900
+        read: 900
 
   - id: rag
     upstream_id: rag
