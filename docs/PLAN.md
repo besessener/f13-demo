@@ -264,16 +264,23 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 
 ```
 f13-demo/
-├── README.md                 # Schnellstart (Deutsch)
+├── README.md                 # Schnellstart (Deutsch, PowerShell)
+├── docker-compose.yml        # kompletter Demo-Stack, mit mem_limit, Healthchecks und Profil "werkzeuge"
+├── .env                      # gepinnte Versionen, Ports, Modell-Tags
 ├── .gitattributes            # LF-Zeilenenden für alles, was in Container gemountet wird
-├── docker-compose.yml        # kompletter Demo-Stack, mit mem_limit, Healthchecks und Werkzeug-Profil
-├── versions.env              # gepinnte F13-Images, Ollama-Version, Modell-Tags
-├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, ggf. Branding)
+├── config/
+│   ├── core/                 # APISIX (Core) im Gastmodus: Routen + Standalone-Konfiguration
+│   ├── chat/                 # Chat v3: general.yml, llm_models.yml, agentic_chat.yml (ohne Websuche)
+│   ├── f13/                  # gemeinsame general.yml + llm_models.yml für summary, rag, parser, feedback
+│   ├── opa/policies/         # Tool-Berechtigungen (Pflicht für Chat v3)
+│   └── secrets/              # lokales Demo-Passwort der Feedback-DB (nie veröffentlicht)
+├── werkzeuge/                # modelle_laden, warmup, pruefen, testfragen, versionen (+ pdf_erzeugen)
 ├── demo-data/
-│   ├── summary/              # Dokument für die Zusammenfassung
-│   └── rag/                  # Pokémon-Wissensbasis + testfragen.md
+│   ├── summary/              # PDF für die Zusammenfassung
+│   └── rag/                  # 6 fiktive Vorschriften (MD + PDF) + testfragen.md
 └── docs/
     ├── PLAN.md               # dieses Dokument
+    ├── VERIFIZIEREN.md       # Checkliste aller ungeprüften Annahmen (Phase 1)
     ├── DEMO-SKRIPT.md
     ├── ARCHITEKTUR.md
     └── MESSWERTE.md

@@ -1,0 +1,78 @@
+# Gemeinsame Modellkonfiguration für summary, rag und parser (f13-demo).
+# Quelle: F13 core v3.0.0 (llm_models.yml), angepasst für f13-demo.
+#
+# Gemountet (einzeln, read-only) nach /<dienst>/configs/llm_models.yml
+# ANNAHME (ungeprüft): Pfad wie bei chat/feedback.
+#
+# Modellwechsel: Diese Datei kann .env NICHT lesen. Wer LLM_MODELL oder
+# EMBEDDING_MODELL in .env ändert, muss "model" hier UND in
+# config/chat/llm_models.yml anpassen.
+#
+# Ollama läuft mit OLLAMA_CONTEXT_LENGTH=4096. context_length ist das Gesamtfenster
+# (Eingabe + Ausgabe) und darf 4096 nicht überschreiten.
+
+chat:
+  llama_lokal:
+    label: "Llama 3.2 3B (lokal)"
+    model: "llama3.2:3b"
+    prompt_map: base_assistant
+    is_remote: false
+    context_length: 4096
+    api:
+      url: http://ollama:11434/v1
+      timeout: 600
+      health_check: /models
+    inference:
+      temperature: 0.3
+      top_p: 0.9
+      max_new_tokens: 1024
+
+summary:
+  llama_lokal:
+    label: "Llama 3.2 3B (lokal)"
+    model: "llama3.2:3b"
+    prompt_map: map_reduce_summarizer
+    is_remote: false
+    context_length: 4096
+    api:
+      url: http://ollama:11434/v1
+      health_check: /models
+      # Map-Reduce auf der CPU dauert lange (Sekunden).
+      timeout: 900
+    inference:
+      max_retries: 1
+
+rag:
+  llama_lokal:
+    label: "Llama 3.2 3B (lokal)"
+    model: "llama3.2:3b"
+    prompt_map: base_answer_generator
+    is_remote: false
+    api:
+      url: http://ollama:11434/v1
+      health_check: /models
+    inference:
+      temperature: 0.2
+      top_p: 0.9
+      max_new_tokens: 768
+    # Wenige Abschnitte, damit der Prompt in 4096 Tokens passt.
+    max_chunks_to_use: 3
+
+embedding:
+  granite_lokal:
+    label: "Granite Embedding 278M (lokal)"
+    model: "granite-embedding:278m"
+    is_remote: false
+    api:
+      url: http://ollama:11434/v1
+      health_check: /models
+    # Das Modell verarbeitet höchstens 512 Tokens pro Abschnitt. Deutsch braucht ca.
+    # 1,5–2 Tokens pro Wort, daher 180 Wörter pro Abschnitt mit 30 Wörtern Überlappung.
+    # ANNAHME (ungeprüft): split_length/split_overlap zählen Wörter (Haystack-Standard
+    # split_by: word).
+    document_splitter_config:
+      split_length: 180
+      split_overlap: 30
+
+# reranking: absichtlich weggelassen (spart RAM).
+# ANNAHME (ungeprüft): Der RAG-Dienst funktioniert ohne Reranker.

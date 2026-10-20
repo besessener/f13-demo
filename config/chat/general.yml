@@ -1,0 +1,11 @@
+# Chat-Dienst: allgemeine Einstellungen (f13-demo).
+# Gemountet nach /chat/configs/general.yml (einzeln, read-only), damit die
+# eingebaute prompt_maps.yml im Image erhalten bleibt.
+# Chat v3 startet nur, wenn OPA erreichbar ist.
+service_endpoints:
+  opa: http://opa:8181/
+
+active_llms:
+  chat: ["llama_lokal"]
+
+log_level: INFO

@@ -1,0 +1,8 @@
+# Chat-Dienst: Einstellungen für den agentischen Chat (f13-demo).
+# Gemountet nach /chat/configs/agentic_chat.yml.
+# Die Demo läuft vollständig lokal: KEINE externe Websuche, keine MCP-Server.
+agent:
+  recursion_limit: 7
+
+tools:
+  mcp_endpoints: []

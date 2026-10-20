@@ -1,0 +1,50 @@
+# Gemeinsame Core-Konfiguration für summary, rag, parser und feedback (f13-demo).
+# Quelle: F13 core v3.0.0 (general.yml), angepasst für f13-demo.
+#
+# Gemountet (einzeln, read-only) nach:
+#   /feedback/configs/general.yml
+#   /summary/configs/general.yml   # ANNAHME (ungeprüft): Pfad wie bei chat/feedback
+#   /rag/configs/general.yml       # ANNAHME (ungeprüft): Pfad wie bei chat/feedback
+#   /parser/configs/general.yml    # ANNAHME (ungeprüft): Pfad wie bei chat/feedback
+service_endpoints:
+  chat: http://chat:8000/
+  summary: http://summary:8000/
+  parser: http://parser:8000/
+  rag: http://rag:8000/
+  elasticsearch: http://elasticsearch:9200/
+
+active_llms:
+  chat: ["llama_lokal"]
+  summary: ["llama_lokal"]
+  rag: ["llama_lokal"]
+
+feedback_db:
+  server: "feedback-db"
+  port: 5432
+  dialect: "postgresql"
+  db_name: "feedback"
+  username: "member"
+  path_secret: "/core/secrets/feedback_db.secret"
+
+# Gastmodus: kein Keycloak. Die Keycloak-Werte sind nur Platzhalter aus dem Original.
+authentication:
+  guest_mode: true
+  keycloak_base_url: http://keycloak:8080
+  keycloak_realm: f13
+  keycloak_client: f13-api
+  audience: f13-api
+
+allow_origins:
+  - "http://localhost:9999"
+  - "http://localhost:8000"
+
+log_level: INFO
+# CPU-Inferenz ist langsam (Original: 180 Sekunden).
+llm_api_timeout: 600
+haystack_log_level: WARNING
+debug_haystack_pipelines: False
+
+inter_service_communication:
+  parser:
+    max_attempts: 2
+    timeout_in_s: 600

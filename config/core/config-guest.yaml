@@ -1,0 +1,20 @@
+# APISIX-Grundkonfiguration für f13-demo (Gastmodus, ohne etcd).
+# Quelle: F13 core v3.0.0, angepasst für f13-demo.
+# Wird gemountet nach /usr/local/apisix/conf/config-guest.yaml (und als config.yaml,
+# siehe docker-compose.yml) und über
+# APISIX_PROFILE=guest geladen.
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+apisix:
+  node_listen:
+    - ${{BACKEND_PORT:=8000}}
+  # Ergänzung für f13-demo: nur IPv4. Ohne IPv6 im Container bricht APISIX sonst mit
+  # "socket() [::]:8000 failed (97: Address family not supported)" ab.
+  enable_ipv6: false
+
+# Ergänzung für f13-demo: APISIX startet sonst einen Worker pro CPU-Kern. Auf einem
+# Laptop mit vielen Kernen sprengt das das Speicherlimit (mem_limit 256m).
+nginx_config:
+  worker_processes: 2

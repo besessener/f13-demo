@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Editoren und Betriebssystem
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Lokale Überschreibungen (nicht einchecken)
+docker-compose.override.yml
+.env.local
+
+# Messwerte-Rohdaten und Logs
+*.log

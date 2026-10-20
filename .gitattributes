@@ -1,0 +1,14 @@
+# Alles, was in Container gemountet wird, braucht LF-Zeilenenden – auch unter Windows.
+* text=auto eol=lf
+
+# Binärdateien: nie Zeilenenden umwandeln
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+
+# SVG ist Text und behält LF (fällt unter die erste Regel).
+
+# Das Secret darf keinen Zeilenumbruch bekommen oder verändert werden.
+config/secrets/*.secret -text

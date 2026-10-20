@@ -250,5 +250,24 @@ auf `gitlab.opencode.de/f13/microservices/…`.
 
 ## Weitere Annahmen aus der Implementierung
 
-<!-- Hier werden die ANNAHMEN aus docker-compose.yml, config/, werkzeuge/ und demo-data/
-     ergänzt, die die anderen Teile der Umsetzung gemeldet haben. -->
+Diese Punkte stammen aus dem Bau von Stack, Werkzeugen und Wissensbasis. Was oben schon
+behandelt ist, steht hier nicht noch einmal.
+
+| Nr | Annahme | Wo | Prüfen | Falls falsch |
+| --- | --- | --- | --- | --- |
+| W1 | Die F13-Python-Images enthalten `python` und lauschen auf Port 8000. Der Healthcheck prüft nur, ob der Port offen ist. | `docker-compose.yml`, `x-f13-dienst` | `docker compose ps`: Sind chat, summary, rag, parser und feedback „healthy“? | Healthcheck anpassen oder entfernen. Nichts hängt davon ab, weil core nur `service_started` voraussetzt. |
+| W2 | `split_length`/`split_overlap` zählen **Wörter** (Haystack-Standard `split_by: word`). | `config/f13/llm_models.yml` | RAG-Logs: Warnungen zum Token-Limit von granite-embedding (512)? | `split_length` verkleinern, z. B. 120 |
+| W3 | Die `/llms`-Endpunkte liefern eine Liste mit `label`. | `werkzeuge/pruefen.py` | `docker compose run --rm pruefen` | Betrifft nur die Anzeige, nicht die Bewertung ✔/✘ |
+| W4 | Das Frontend hat keinen Healthcheck, weil unbekannt ist, welche Werkzeuge das Image enthält. | `docker-compose.yml` | `pruefen` prüft es von außen | – |
+| W5 | Ports, die an `127.0.0.1:` gebunden sind, erreicht man unter Rancher Desktop (Windows) über `http://localhost`. | `docker-compose.yml`, `ports` | Phase 2: http://localhost:8000/health im Browser | `127.0.0.1:` vor den Ports entfernen. Dann ist die Demo im Netz sichtbar, also Windows-Firewall beachten. |
+| W6 | Der Dateimodus der Recherche verarbeitet 2–3-seitige PDFs mit Tabellen sauber. | `demo-data/rag/*.pdf` | Phase 6: Testfragen 1–12 in der Oberfläche | Tabellen in den Markdown-Quellen in Fließtext umschreiben, dann `python3 werkzeuge/pdf_erzeugen.py` |
+
+**Im Test hier gefundene und behobene Abweichungen.** Das sind keine Annahmen mehr:
+- APISIX 3.15 startet im Standalone-Modus nur, wenn `config-guest.yaml` zusätzlich als
+  `conf/config.yaml` gemountet ist.
+- `enable_ipv6: false` ist gesetzt, weil APISIX ohne IPv6 im Container nicht startet.
+- `worker_processes: 2` begrenzt den RAM-Verbrauch.
+- Elasticsearch läuft mit `xpack.ml.enabled=false`, gemessen ca. 916 MiB.
+- core, opa, feedback-db und elasticsearch wurden in der Build-Umgebung gestartet und
+  waren alle „healthy“. Die Images von registry.opencode.de, der Frontend-Build und
+  Ollama konnten dort nicht getestet werden.

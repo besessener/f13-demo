@@ -1,0 +1,25 @@
+# Chat-Dienst: Sprachmodelle (f13-demo).
+# Gemountet nach /chat/configs/llm_models.yml.
+#
+# Modellwechsel: Diese Datei kann .env NICHT lesen. Wer LLM_MODELL in .env ändert,
+# muss "model" hier UND in config/f13/llm_models.yml anpassen.
+#
+# Prompts verwenden Python str.format: Die einzige erlaubte geschweifte Klammer
+# ist {current_date}.
+chat:
+  llama_lokal:
+    label: "Llama 3.2 3B (lokal)"
+    model: "llama3.2:3b"
+    prompt_map: base_assistant
+    is_remote: false
+    # Gesamtfenster (Eingabe + Ausgabe). Muss <= OLLAMA_CONTEXT_LENGTH (4096) sein.
+    context_length: 4096
+    api:
+      url: http://ollama:11434/v1
+      # CPU-Inferenz ist langsam, daher großzügig (Sekunden).
+      timeout: 600
+      health_check: /models
+    inference:
+      temperature: 0.3
+      top_p: 0.9
+      max_new_tokens: 1024
