@@ -1,6 +1,6 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v2.** Die Eckdaten stehen fest. Offen sind nur noch die Hardware-Details in §9.
+Status: **Entwurf v3.** Die Eckdaten stehen fest. Offen sind nur noch die Hardware-Details und der Termin in §11.
 
 ## 1. Ziel
 
@@ -15,6 +15,7 @@ verstehe, selbst betreiben kann und anderen vorführen kann.
 | Funktionen | Chat, Zusammenfassung, **RAG** |
 | RAG-Thema | **Pokémon** (siehe §4) |
 | Sprache | **Nur Deutsch**: Oberfläche, Wissensbasis, Prompts, Doku |
+| Branding | **„F13 · Pokédex-Edition“** (siehe §5) |
 
 ## 2. Was ist F13?
 
@@ -112,10 +113,53 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 | „Wer darf Meisterbälle ausgeben?“ | Dienstanweisung Inventur, Abschnitt Verschlusssachen |
 | **Gegenprobe:** dieselbe Frage im Chat **ohne** RAG | Das Modell rät oder weiß es nicht. Das zeigt den Unterschied. |
 
-## 5. Ablauf der Vorführung (ca. 10–12 Min.)
+## 5. Branding: „F13 · Pokédex-Edition“
+
+### Geht das?
+
+**Ja.**
+- F13 steht unter MPL-2.0. Wir dürfen das Frontend also ändern. Für die interne Nutzung
+  gibt es keine Auflagen. Geben wir geänderte F13-Dateien weiter, bleiben sie MPL-2.0.
+- **Noch nicht verifiziert:** Ob sich Logo und Farben per Konfiguration ändern lassen.
+  Außerdem gibt es zwei Frontends, `f13-frontend` (React) und `frontend` (Svelte).
+  Welches v3 nutzt, klärt Phase 1.
+
+### Vorgehen: so wenig Eingriff wie möglich
+
+1. **Konfiguration**, falls vorhanden: Titel, Logo und Farben über Env-Variablen oder eine
+   Config-Datei setzen.
+2. **Overlay-Image:** `branding/Dockerfile` baut `FROM <F13-Frontend-Image>` und kopiert
+   CSS-Overrides, Logo, Favicon und Schrift hinein. Upstream bleibt unverändert, und
+   Updates bleiben einfach.
+3. **Patch**, nur wenn nötig: ein kleiner Patch in `branding/patches/`, z. B. für
+   Oberflächentexte.
+
+### Gestaltung
+
+| Element | Umsetzung |
+| --- | --- |
+| Name | „F13 · Pokédex-Edition“ |
+| Farben | Pokédex-Rot `#DC0A2D` für Kopfzeile und Primärbuttons, Dunkelrot `#9E0820` für Hover, Display-Blau `#30A7D7` als Akzent (nur Flächen und Rahmen oder mit dunkler Schrift, **nie** weiße Schrift darauf: 2,75:1), Gelb `#FFCB05` nur als Hinweis-Hintergrund mit dunkler Schrift |
+| Dunkelmodus (optional) | „Game-Boy-Grün“: `#0F380F` / `#306230` / `#8BAC0F` / `#9BBC0F` |
+| Logo und Favicon | Selbst gezeichnetes SVG: blaue „Pokédex-Linse“ neben dem Schriftzug „F13“. **Kein** offizielles Logo, keine Sprites. |
+| Schrift | Überschriften in „Press Start 2P“ (Pixel-Look, SIL OFL), **lokal eingebunden** und ohne Abruf von Google Fonts, weil die Demo offline läuft. Fließtext in der Systemschrift. |
+| Oberflächentexte | Begrüßung: „Ein wildes F13 erscheint! Wie kann ich helfen?“ · Laden: „F13 setzt Nachdenken ein …“ · Upload fertig: „Dokument gefangen!“ · Fehler: „Das war nicht sehr effektiv … Bitte erneut versuchen.“ · Leerer Verlauf: „Noch keine Einträge im Pokédex.“ |
+
+### Regeln
+
+- **Antworten bleiben sachlich.** Der Pokémon-Stil gehört in die Oberfläche und die
+  Wissensbasis, **nicht** in den Systemprompt. Sonst leidet die Antwortqualität des
+  kleinen Modells.
+- **Barrierefreiheit:** Kontrast mindestens 4,5:1 (WCAG AA). Geprüft: Weiß auf `#DC0A2D` 5,1:1,
+  Weiß auf `#9E0820` 8,4:1, Dunkel auf Gelb 11,4:1, Dunkel auf Blau 6,3:1. Alle
+  bestehen. Die Pixel-Schrift verwenden wir nur für Überschriften.
+- **Freigabe vor dem Umbau:** Zuerst entsteht ein klickbarer HTML-Entwurf, und ich gebe
+  ihn frei.
+
+## 6. Ablauf der Vorführung (ca. 10–12 Min.)
 
 1. **Einstieg (1 Min.):** Was ist F13, und warum ist der lokale Betrieb wichtig? Ich zeige
-   kurz die Architekturskizze.
+   kurz die Architekturskizze und die Pokédex-Edition.
 2. **Chat (2 Min.):** Ablehnungsbescheid für einen Arenalizenz-Antrag in **Leichter
    Sprache** schreiben lassen.
 3. **Zusammenfassung (2 Min.):** Die VwV PokéHaltung als PDF hochladen und eine
@@ -126,7 +170,7 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 6. **Grenzen und Fazit (2 Min.):** Geschwindigkeit auf CPU, Qualität eines 4B-Modells,
    was der Produktivbetrieb bräuchte (GPU, größeres Modell).
 
-## 6. Phasen
+## 7. Phasen
 
 | Phase | Inhalt | Aufwand |
 | --- | --- | --- |
@@ -136,11 +180,12 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | ½ Tag |
 | **5. Wissensbasis schreiben** | Die 6 Dokumente aus §4 und den Antwortschlüssel schreiben, PDFs erzeugen | ½–1 Tag |
 | **6. RAG** | RAG-Dienst und Vektor-DB einbinden, Wissensbasis indexieren, Testfragen durchlaufen lassen und Trefferquote notieren | 1 Tag |
-| **7. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, Modelle vorladen (Warm-up), Bildschirmaufnahme als Fallback, Generalprobe | ½–1 Tag |
+| **7. Branding** | HTML-Entwurf freigeben, dann Logo, CSS und Texte über Konfiguration oder Overlay-Image umsetzen (siehe §5) | ½–1 Tag |
+| **8. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, Modelle vorladen (Warm-up), Bildschirmaufnahme als Fallback, Generalprobe | ½–1 Tag |
 
-**Gesamt: ca. 4–6 Tage.**
+**Gesamt: ca. 5–7 Tage.**
 
-## 7. Nachweis für die Zielvereinbarung
+## 8. Nachweis für die Zielvereinbarung
 
 | Nachweis | Ablage |
 | --- | --- |
@@ -151,7 +196,7 @@ verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
 | Vorführung live und als Aufzeichnung | Termin und Datei |
 | Anleitung „In 15 Minuten selbst starten“ für Kolleg:innen | `README.md` |
 
-## 8. Repo-Struktur
+## 9. Repo-Struktur
 
 ```
 f13-demo/
@@ -160,6 +205,7 @@ f13-demo/
 ├── docker-compose.yml        # kompletter Demo-Stack
 ├── versions.env              # gepinnte F13-Images, Ollama-Version, Modell-Tags
 ├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, …)
+├── branding/                 # Pokédex-Edition: Dockerfile (Overlay), CSS, Logo, Schrift, ggf. Patches
 ├── demo-data/
 │   ├── summary/              # Dokument für die Zusammenfassung
 │   └── rag/                  # Pokémon-Wissensbasis + testfragen.md
@@ -172,7 +218,7 @@ f13-demo/
     └── MESSWERTE.md
 ```
 
-## 9. Risiken
+## 10. Risiken
 
 | Risiko | Gegenmaßnahme |
 | --- | --- |
@@ -182,9 +228,11 @@ f13-demo/
 | Upstream-Doku unvollständig oder nicht passend zu v3 | Versionen pinnen, eigene Compose-Datei, Probleme im Lerntagebuch festhalten |
 | Login (Keycloak) blockiert | Für die Demo den Gastmodus nutzen |
 | Zu wenig RAM | Modell oder Dienste verkleinern; siehe §3 |
-| Markenrecht Pokémon | Nur intern, nur eigene Texte, keine offiziellen Bilder, keine Veröffentlichung |
+| Frontend lässt sich nicht per Konfiguration branden | Overlay-Image oder kleiner Patch (§5). Upstream bleibt unverändert. |
+| Branding geht bei einem F13-Update kaputt | Image-Version pinnen; Overlay statt Fork |
+| Markenrecht Pokémon | Nur intern; nur eigene Texte, eigenes Logo und eigene Farben; keine offiziellen Logos, Sprites oder Schriften; keine Veröffentlichung |
 
-## 10. Noch offen
+## 11. Noch offen
 
 1. **Rechner:** Betriebssystem (Windows, macOS oder Linux), RAM, CPU. Ist Docker Desktop
    bzw. Docker Engine erlaubt und installiert?
@@ -197,6 +245,7 @@ f13-demo/
 - [Staatsanzeiger: F13 wird Open Source](https://www.staatsanzeiger.de/nachrichten/politik-und-verwaltung/f13-wird-open-source-baden-wuerttemberg-bringt-ki-in-die-verwaltung/)
 - [Treffpunkt Kommune: F13 wird Open-Source-Software](https://www.treffpunkt-kommune.de/der-startschuss-fuer-ein-souveraenes-europaeisches-ki-oekosystem-ki-assistenz-f13-wird-open-source-software/)
 - [f13-os.de – Kennenlernen](https://f13-os.de/kennenlernen/)
+- F13-Frontends: [f13-frontend (React)](https://gitlab.opencode.de/f13/microservices/f13-frontend), [frontend (Svelte)](https://gitlab.opencode.de/f13/microservices/frontend)
 - F13-Repos: [Gruppe](https://gitlab.opencode.de/f13), [Chat](https://gitlab.opencode.de/f13/microservices/chat), [Core](https://gitlab.opencode.de/f13/microservices/core), [Frontend](https://gitlab.opencode.de/f13/microservices/frontend), [Summary](https://gitlab.opencode.de/f13/microservices/summary), [Parser-Releases](https://gitlab.opencode.de/f13/microservices/parser/-/releases), [RAG](https://gitlab.opencode.de/f13/microservices/rag)
 - [Ollama – OpenAI-Kompatibilität](https://docs.ollama.com/api/openai-compatibility.md)
 - [Ollama – bge-m3](https://registry.ollama.ai/library/bge-m3)
