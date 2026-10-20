@@ -11,6 +11,33 @@ Repo-Ordner.
 | Ollama-Version (`OLLAMA_VERSION`) | |
 | Datum der Messungen | |
 
+## 0. Referenzwerte aus der CI
+
+Der GitHub-Runner (4 CPU, 16 GB) hat den kompletten Stack mit dem Mini-Modell
+`qwen2.5:0.5b` gestartet (Lauf 8, 20.10.2026). RAM nach Smoke-Test und Vorführung:
+
+| Container | RAM |
+| --- | --- |
+| elasticsearch | 978 MiB |
+| parser | 436 MiB |
+| rag | 166 MiB |
+| chat | 128 MiB |
+| summary | 116 MiB |
+| core | 75 MiB |
+| feedback-db | 66 MiB |
+| feedback | 56 MiB |
+| opa | 44 MiB |
+| reranker | 19 MiB |
+| frontend | 5 MiB |
+| **Summe ohne Sprachmodell** | **ca. 2,1 GB** |
+
+Dazu kommt Ollama mit `llama3.2:3b` (ca. 2,5 GB inkl. Embedding-Modell). Das ergibt
+ca. 4,6 GB und liegt damit im 5-GB-Limit von `.wslconfig`.
+
+Dauer auf dem Runner mit dem Mini-Modell: Zusammenfassung des 3-seitigen PDFs 114 s,
+Recherche über alle 6 PDFs 31 s. Auf dem Laptop mit dem 3B-Modell wird es deutlich
+langsamer.
+
 ## 1. Modellvergleich
 
 ### Ablauf
