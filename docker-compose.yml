@@ -13,6 +13,7 @@
 #   docker compose run --rm versionen          Verfügbare F13-Image-Tags anzeigen (Internet)
 #   docker compose run --rm smoke-test         Echte Anfragen an Chat, Summary und RAG
 #   docker compose run --rm api-doku           API-Beschreibungen nach ausgabe/openapi/
+#   docker compose run --rm modellvergleich    Sprachmodelle vergleichen (Tempo, RAM, Antworten)
 #   docker compose logs -f chat                Logs eines Dienstes ansehen
 #   docker compose down                        Stoppen – OHNE -v, sonst sind die Modelle weg
 #
@@ -345,6 +346,19 @@ services:
     environment:
       <<: *werkzeug-umgebung
       CORE_URL: http://core:8000
+
+  # Vergleicht Sprachmodelle (Tempo, RAM, Antworten) -> ausgabe/modellvergleich.md
+  # Andere Modelle: docker compose run --rm -e MODELLE="a:1b,b:2b" modellvergleich
+  modellvergleich:
+    <<: *werkzeug
+    command: ["python", "/werkzeuge/modellvergleich.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - ./demo-data:/demo-data:ro
+      - ./ausgabe:/ausgabe
+    depends_on:
+      ollama:
+        condition: service_healthy
 
   # Schreibt die OpenAPI-Beschreibungen der F13-Dienste nach ./ausgabe/openapi/.
   api-doku:

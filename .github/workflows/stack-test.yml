@@ -115,6 +115,10 @@ jobs:
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm smoke-test
 
+      - name: Modellvergleich (Mini-Modell, prüft nur das Werkzeug)
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
+        run: docker compose run --rm -e MODELLE="${CI_LLM_MODELL}" -e MAX_TOKENS=40 modellvergleich
+
       # Artefakte lassen sich nicht überall herunterladen; deshalb die wichtigsten
       # Diagnosen zusätzlich direkt ins Job-Log schreiben.
       - name: Diagnose im Log
