@@ -1,7 +1,7 @@
 # F13-Demo – Plan
 
-Status: **Entwurf v4.** Alle Eckdaten stehen fest. Offen ist nur noch das Betriebssystem
-(§11).
+Status: **Entwurf v5.** Alle Eckdaten stehen fest. Offen sind nur noch die Adminrechte für
+WSL (§11).
 
 ## 1. Ziel
 
@@ -12,7 +12,7 @@ verstehe, selbst betreiben kann und anderen vorführen kann.
 | --- | --- |
 | Zielgruppe | Intern: Führungskraft und Kolleg:innen |
 | Termin | **Mo, 09.11.2026** (in 20 Tagen) |
-| Rechner | **8 GB RAM, keine GPU** |
+| Rechner | **Windows, 8 GB RAM, keine GPU** |
 | Betrieb | **Vollständig lokal**, keine Cloud |
 | Modell | Kleines Open-Weight-Modell (2–3 B) über **Ollama** |
 | Funktionen | Chat, Zusammenfassung, **RAG** |
@@ -49,18 +49,59 @@ Fachdiensten:
 >
 > `gitlab.opencode.de` war in der Umgebung, in der dieser Plan entstand, gesperrt.
 
-## 3. Architektur und Betrieb mit 8 GB RAM
+## 3. Architektur und Betrieb mit Windows und 8 GB RAM
 
 ```
-Browser ──► Frontend ──► Core (APISIX) ──┬─► Chat ─────────────┐
-                                         ├─► Summary ──► Parser├─► Ollama :11434 (nativ, nicht in Docker)
-                                         └─► RAG ──► Vektor-DB ┘    ├─ LLM (2–3 B, Q4)
-                                                                    └─ Embeddings (granite-embedding:278m)
+Windows 11 (ca. 3 GB)                 WSL2-VM: Ubuntu (Limit 5 GB)
+┌──────────────────┐                  ┌──────────────────────────────────────────────────────────────┐
+│ Browser          │── localhost ───► │ Docker Engine (ohne Docker Desktop)                          │
+│ http://localhost │                  │  Frontend ─► Core (APISIX) ─┬─► Chat ──────────────┐         │
+└──────────────────┘                  │                             ├─► Summary ─► Parser  ├─► Ollama│
+                                      │                             └─► RAG ─► Vektor-DB ──┘   :11434│
+                                      │                    LLM (2–3 B, Q4) + granite-embedding:278m  │
+                                      └──────────────────────────────────────────────────────────────┘
 ```
 
-Ollama stellt unter `http://<host>:11434/v1/` eine OpenAI-kompatible API bereit, mit
+Ollama stellt unter `http://ollama:11434/v1/` eine OpenAI-kompatible API bereit, mit
 `/v1/chat/completions` und `/v1/embeddings`. Laut offizieller Doku ist diese Schicht noch
 „experimental“. Deshalb pinnen wir die Ollama-Version.
+
+### Windows-Setup: alles in WSL2, ohne Docker Desktop
+
+**Empfehlung:** Ubuntu in WSL2, darin Docker Engine. Ollama läuft als Container im selben
+Compose-Stack.
+
+Warum:
+- **Weniger RAM:** Docker Desktop braucht eigene Backend-Prozesse und eine eigene
+  Oberfläche. Das fällt hier weg.
+- **Ein Speicherlimit für alles:** Wir setzen genau ein Limit für die WSL-VM in
+  `.wslconfig`. Windows behält den Rest.
+- **Keine Lizenzfrage:** Docker Desktop ist für Firmen ab 250 Mitarbeitenden oder ab
+  10 Mio. $ Umsatz kostenpflichtig. Docker Engine ist es nicht.
+- **Ein Befehl:** `make up` startet auch Ollama. Es gibt keine Host-Netzwerk-Tricks und
+  keine Firewall-Freigaben.
+- **Bash und Makefile** laufen in Ubuntu ohne Umwege.
+- Der Browser unter Windows erreicht die Demo über `http://localhost`. WSL leitet die Ports
+  standardmäßig weiter.
+
+**Einrichtung (Phase 2):**
+1. `wsl --install -d Ubuntu-24.04` (braucht **Adminrechte**), danach Neustart.
+2. `%UserProfile%\.wslconfig` anlegen:
+   ```ini
+   [wsl2]
+   memory=5GB   # Rest (~3 GB) bleibt für Windows + Browser
+   swap=4GB     # Sicherheitsnetz gegen Abstürze, langsam
+   ```
+   Danach `wsl --shutdown`. Ob `autoMemoryReclaim` zusätzlich hilft und in welchem
+   Abschnitt die Option bei unserer WSL-Version steht, prüfen wir in Phase 2.
+3. In Ubuntu prüfen, ob `systemd` aktiv ist (Standard bei neuen Installationen). Dann
+   Docker Engine nach der offiziellen Anleitung „Install Docker Engine on Ubuntu“
+   installieren und `systemctl enable --now docker` ausführen.
+4. Repo **im Linux-Dateisystem** klonen (`~/f13-demo`), nicht unter `/mnt/c/…`. Sonst
+   werden Dateizugriffe sehr langsam.
+
+**Rückfall:** Ist Docker Desktop schon installiert und lizenziert, geht es auch damit. Dann
+gilt das Limit aus `.wslconfig` ebenfalls, und Ollama bleibt im Container.
 
 ### Modellwahl für 8 GB
 
@@ -80,19 +121,19 @@ genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
 
 ### RAM-Budget (8 GB)
 
-| Posten | ca. |
-| --- | --- |
-| Betriebssystem, Desktop, Docker | 2,5–3 GB |
-| Browser (nur ein Tab) | 0,5 GB |
-| LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB |
-| Embedding-Modell | 0,6 GB |
-| F13-Dienste und Vektor-DB | 1,5–2 GB |
-| **Summe** | **7–8,5 GB, also knapp** |
+| Posten | ca. | Wo |
+| --- | --- | --- |
+| Windows 11 und Desktop | 2,5 GB | Windows |
+| Browser (nur ein Tab) | 0,5 GB | Windows |
+| LLM inkl. KV-Cache (4k Kontext) | 2–2,5 GB | WSL |
+| Embedding-Modell | 0,6 GB | WSL |
+| F13-Dienste und Vektor-DB | 1,5–2 GB | WSL |
+| **Summe** | **7–8 GB, also knapp** | WSL-Limit 5 GB + 4 GB Swap |
 
 ### Sparmaßnahmen
 
-- **Ollama nativ** installieren, nicht im Docker-Container.
-- Ollama-Einstellungen:
+- Kein Docker Desktop; das Setup steht oben.
+- Ollama-Einstellungen als `environment` im Compose-Service:
   - `OLLAMA_NUM_PARALLEL=1`
   - `OLLAMA_CONTEXT_LENGTH=4096`
   - `OLLAMA_FLASH_ATTENTION=1` und `OLLAMA_KV_CACHE_TYPE=q8_0`
@@ -100,8 +141,8 @@ genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
   - `OLLAMA_KEEP_ALIVE=-1` während der Vorführung
 - `mem_limit` für jeden Container. Falls die Vektor-DB Elasticsearch ist, den Heap auf
   512 MB begrenzen.
-- Docker Desktop bzw. WSL das Speicherlimit passend setzen (siehe §11).
-- Während der Vorführung Teams, Outlook und alle anderen Programme schließen.
+- Während der Vorführung Teams, Outlook und alle anderen Programme schließen. Das ist
+  unter Windows besonders wichtig, weil dort nur ca. 3 GB übrig bleiben.
 - Für die Zusammenfassung nur kurze Dokumente (2–3 Seiten) verwenden.
 
 ### Go/No-Go am Fr, 23.10.
@@ -192,7 +233,7 @@ Heute ist Di, 20.10.2026. Die Demo ist am Mo, 09.11.2026.
 | Phase | Inhalt | Wann |
 | --- | --- | --- |
 | **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären, auch die Branding-Optionen. | Mi 21.10. |
-| **2. Ollama und Modelle** | Ollama nativ installieren, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`, RAM messen | Do 22.10. – Fr 23.10. |
+| **2. WSL, Docker, Ollama und Modelle** | WSL2 mit Ubuntu, `.wslconfig` und Docker Engine einrichten (§3). Ollama-Container starten, Modelle vergleichen, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings`. RAM messen mit `docker stats` und dem Task-Manager. | Do 22.10. – Fr 23.10. |
 | 🚦 **Go/No-Go** | RAM-Test bestanden? Sonst Rückfallstufen aus §3 | **Fr 23.10.** |
 | **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | Mo 26.10. – Di 27.10. |
 | **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | Mi 28.10. |
@@ -238,6 +279,8 @@ f13-demo/
 | Risiko | Gegenmaßnahme |
 | --- | --- |
 | **8 GB RAM reichen nicht** | Sparmaßnahmen aus §3; Go/No-Go am 23.10. mit Rückfallstufen |
+| Keine Adminrechte, oder WSL ist per Firmenrichtlinie gesperrt | **Sofort klären** (§11). Ohne WSL läuft der F13-Stack nicht. |
+| Langsame Dateizugriffe unter WSL | Repo im Linux-Dateisystem (`~/`), nicht unter `/mnt/c` |
 | Antworten auf CPU zu langsam | Kleines Modell, 4k Kontext, kurze Dokumente, Warm-up vor der Vorführung |
 | Kleines Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
 | RAG-Dienst erwartet ein Embedding-Modell oder eine DB, die nicht zu Ollama passt | Phase 1 klärt das. Notfalls läuft das Embedding-Modell als eigener Container. |
@@ -248,11 +291,9 @@ f13-demo/
 
 ## 11. Noch offen
 
-1. **Betriebssystem** des Demo-Rechners: Windows, macOS oder Linux? Ist Docker erlaubt?
-   Das ist bei 8 GB wichtig:
-   - Docker Desktop auf Windows (WSL2) und macOS läuft in einer VM mit eigenem
-     Speicherlimit.
-   - Unter Linux entfällt diese VM.
+1. **Adminrechte und WSL:** Darf ich auf dem Demo-Rechner WSL2 installieren, oder ist es
+   schon installiert? Wenn nicht: rechtzeitig bei der IT anfragen, **spätestens bis
+   Mi 21.10.**
 
 ## Quellen
 
@@ -268,6 +309,12 @@ f13-demo/
 - [Docker Hub – granite-embedding-multilingual](https://hub.docker.com/r/ai/granite-embedding-multilingual)
 - [Ollama – bge-m3](https://registry.ollama.ai/library/bge-m3)
 - [Ollama – Kontextlänge und KV-Cache (SSD Nodes)](https://www.ssdnodes.com/learn/ollama-context-length-num-ctx)
+- [Ollama – FAQ](https://docs.ollama.com/faq)
+- [WSL2 – Speicher begrenzen mit .wslconfig (OneUptime, 2026)](https://oneuptime.com/blog/post/2026-02-08-how-to-configure-docker-desktop-memory-and-cpu-limits-on-windows/markdown)
+- [WSL 2.0.0 – autoMemoryReclaim (ElevenForum)](https://www.elevenforum.com/t/windows-subsystem-for-linux-wsl-2-0-0-september-2023-update-released.18072/)
+- [Docker Engine in WSL2 ohne Docker Desktop (DEV)](https://dev.to/felipecrs/simply-run-docker-on-wsl2-3o8)
+- [Docker-Lizenz: Engine vs. Desktop (SSD Nodes)](https://www.ssdnodes.com/learn/is-docker-free-engine-vs-desktop)
+- [Docker – Lizenz-FAQ](https://docker.io/pricing/faq/)
 - [Ollama – Umgebungsvariablen (DEV)](https://dev.to/threesevenths/ollama-environment-variables-362j)
 - [Ollama – Out-of-Memory-Fehler (LocalAIMaster)](https://localaimaster.com/blog/ollama-out-of-memory-errors)
 - [Best CPU-only local LLMs 2026 – Popular AI](https://www.popularai.org/p/best-cpu-only-local-llm-2026)
