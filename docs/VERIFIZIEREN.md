@@ -8,6 +8,26 @@ meinem Rechner, wo openCode erreichbar ist. Im Repo sind die betroffenen Stellen
 Zu jeder Annahme: was angenommen wird, wo es steht, wie ich es prüfe und was ich tue, wenn
 es falsch ist. Ergebnis jeweils im Kästchen abhaken und kurz notieren.
 
+## Stand: In der CI geprüft
+
+Der Workflow „Stack-Test“ startet den Stack mit den echten F13-Images auf einem GitHub-Runner.
+Damit sind diese Punkte geklärt:
+
+| Annahme | Ergebnis |
+| --- | --- |
+| Image-Pfade und Tags (chat v3.0.0, summary v4.1.0, rag v3.1.1, parser v2.1.5, feedback v1.0.1) | ✔ existieren, Pull ohne Anmeldung |
+| Frontend v3.0.1 | ✔ baut aus dem Repo `frontend` (nicht `f13-frontend`) |
+| Konfigurationspfade `/<dienst>/configs/` | ✔ werden gelesen |
+| Chat-Anfrageformat (`/chat/completion`) | ✔ Antwort über Core |
+| Summary-Anfrageformat (`/summary/text`, `/summary/file`) | ✔ laut OpenAPI, `/summary/text` liefert eine Zusammenfassung |
+| RAG ohne Reranker | ✘ RAG verlangt `reranking`. Gelöst mit dem Dienst `reranker`. |
+| Frontend ohne Transkription | ✘ nginx erwartet `tusd`. Gelöst mit einem Netzwerk-Alias. |
+| Summary ohne Token-Grenze | ✘ lief endlos. Gelöst mit `max_tokens: 800`. |
+| APISIX-Standard-Timeout | ✘ 60 s zu kurz. Gelöst mit 900 s für chat, summary, rag. |
+
+Die Abschnitte unten sind die ursprüngliche Checkliste. Offen bleibt vor allem der RAG-Weg,
+also Datei- und Datenbankmodus.
+
 ## Übersicht
 
 | Nr. | Thema | Wichtig für | Erledigt |
