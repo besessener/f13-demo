@@ -195,7 +195,7 @@ auf `gitlab.opencode.de/f13/microservices/…`.
 ### D1 Frontend v3.0.1 baut aus dem Git-Kontext
 
 - **Annahme:** `docker compose build frontend` baut direkt aus
-  `https://gitlab.opencode.de/f13/microservices/f13-frontend.git#v3.0.1` (Dockerfile im
+  `https://gitlab.opencode.de/f13/microservices/frontend.git#v3.0.1` (Dockerfile im
   Wurzelverzeichnis, keine Build-Argumente nötig), und das Image lauscht auf 9999.
 - **Prüfen:** Build ausführen; `docker compose logs frontend` nach dem Start;
   `docker compose run --rm pruefen`.

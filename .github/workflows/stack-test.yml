@@ -82,6 +82,8 @@ jobs:
 
       - name: Mini-Modell für die CI eintragen
         run: |
+          # Ausgabeordner gehört dem Runner, nicht root (sonst scheitert die Diagnose).
+          mkdir -p ausgabe/logs
           sed -i "s/llama3\.2:3b/${CI_LLM_MODELL}/g" .env config/f13/llm_models.yml config/chat/llm_models.yml
           grep -rn "${CI_LLM_MODELL}" .env config/
 
@@ -96,24 +98,26 @@ jobs:
         run: docker compose pull --ignore-buildable
 
       - name: Stack starten (lädt auch die Modelle)
+        id: start
         run: docker compose up -d --wait --wait-timeout 1200
 
+      # Die folgenden Schritte laufen auch, wenn der Start scheitert (dann mit Teilergebnissen),
+      # aber nicht, wenn er gar nicht erst versucht wurde.
       - name: Dienste prüfen
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm pruefen
 
-      - name: Smoke-Test (echte Anfragen)
-        if: ${{ !cancelled() }}
-        run: docker compose run --rm smoke-test
-
       - name: API-Beschreibungen sichern
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm api-doku
+
+      - name: Smoke-Test (echte Anfragen)
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
+        run: docker compose run --rm smoke-test
 
       - name: Diagnose sammeln
         if: ${{ always() }}
         run: |
-          mkdir -p ausgabe/logs
           docker compose ps -a > ausgabe/ps.txt 2>&1 || true
           docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' > ausgabe/ram.txt 2>&1 || true
           for dienst in $(docker compose config --services); do

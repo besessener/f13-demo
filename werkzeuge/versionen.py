@@ -28,7 +28,8 @@ PROJEKTE = [
     ("rag", "F13_RAG_VERSION"),
     ("parser", "F13_PARSER_VERSION"),
     ("feedback", "F13_FEEDBACK_VERSION"),
-    ("f13-frontend", "F13_FRONTEND_VERSION"),
+    # F13 v3 nutzt das Svelte-Frontend aus "frontend" (nicht das neuere "f13-frontend").
+    ("frontend", "F13_FRONTEND_VERSION"),
 ]
 
 
@@ -72,7 +73,7 @@ def projekt_id(projekt):
 
 def registry_abfragen(projekt):
     """Gibt eine Liste (Image-Pfad, [Tags]) zurück."""
-    daten = hole_json(f"/projects/{projekt_id(projekt)}/registry/repositories?tags=true&tags_count=true")
+    daten = hole_json(f"/projects/{projekt_id(projekt)}/registry/repositories?tags=true&tags_count=true&per_page=100")
     ergebnis = []
     for repo in daten if isinstance(daten, list) else []:
         tags = [t.get("name", "") for t in repo.get("tags") or []]
@@ -81,7 +82,7 @@ def registry_abfragen(projekt):
 
 
 def git_tags_abfragen(projekt):
-    daten = hole_json(f"/projects/{projekt_id(projekt)}/repository/tags?per_page=20&order_by=updated")
+    daten = hole_json(f"/projects/{projekt_id(projekt)}/repository/tags?per_page=100&order_by=updated")
     return sorted((t.get("name", "") for t in daten if isinstance(t, dict)), key=versionsschluessel)
 
 
@@ -111,7 +112,7 @@ def main():
         except Abfragefehler as fehler:
             print(f"    ✘ Registry: {fehler}")
 
-        if projekt == "f13-frontend":
+        if projekt == "frontend":
             # Das Frontend wird aus einem Git-Tag gebaut, nicht aus einem Image.
             try:
                 git_tags = git_tags_abfragen(projekt)

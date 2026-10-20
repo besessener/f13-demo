@@ -96,7 +96,9 @@ services:
     image: f13-demo/frontend:${F13_FRONTEND_VERSION}
     pull_policy: never
     build:
-      context: https://gitlab.opencode.de/f13/microservices/f13-frontend.git#${F13_FRONTEND_VERSION}
+      # F13 v3 nutzt das Svelte-Frontend aus dem Repo "frontend" (Tag v3.0.1). Das neuere
+      # Repo "f13-frontend" (React, Tags app-v*) gehört zu einer anderen F13-Generation.
+      context: https://gitlab.opencode.de/f13/microservices/frontend.git#${F13_FRONTEND_VERSION}
     mem_limit: 200m
     environment:
       KEYCLOAK_DISABLED: "true"

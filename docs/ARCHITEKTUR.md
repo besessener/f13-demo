@@ -51,7 +51,7 @@ erreichbar, z. B. `http://ollama:11434`.
 
 | Dienst | Image | Rolle |
 | --- | --- | --- |
-| `frontend` | selbst gebaut aus `f13-frontend` v3.0.1 (git) | Weboberfläche mit u. a. Chat, Recherche, Zusammenfassung und Transkription (Letztere ohne Backend). Läuft im Gastmodus (`KEYCLOAK_DISABLED=true`). `API_URL=http://localhost:8000`, weil der **Browser** den Core aufruft, nicht der Container. |
+| `frontend` | selbst gebaut aus dem Repo `frontend` v3.0.1 (git) | Weboberfläche mit u. a. Chat, Recherche, Zusammenfassung und Transkription (Letztere ohne Backend). Läuft im Gastmodus (`KEYCLOAK_DISABLED=true`). `API_URL=http://localhost:8000`, weil der **Browser** den Core aufruft, nicht der Container. |
 | `core` | `apache/apisix` | API-Gateway, das Herzstück von F13 v3. Nimmt alle API-Aufrufe an, setzt CORS-Header, schreibt Pfade um und leitet an die Fachdienste weiter. Läuft „stand-alone“ mit Routen aus einer YAML-Datei, ohne etcd. |
 | `chat` | F13 `chat` v3.0.0 | Chat mit dem lokalen LLM. Spricht Ollama über die OpenAI-kompatible API `http://ollama:11434/v1` an. |
 | `opa` | Open Policy Agent | Richtlinien-Dienst, ohne den Chat v3 nicht startet. Entscheidet, welche Werkzeuge (Tools) ein Nutzer im agentischen Chat verwenden darf. Meine Minimal-Richtlinie erlaubt alles ohne Rollenbedarf. |
