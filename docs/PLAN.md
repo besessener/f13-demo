@@ -1,157 +1,206 @@
-# F13 Demo – Plan (draft)
+# F13-Demo – Plan
 
-Status: **draft, waiting on the open questions at the end.**
+Status: **Entwurf v2.** Die Eckdaten stehen fest. Offen sind nur noch die Hardware-Details in §9.
 
-## 1. What F13 is
+## 1. Ziel
 
-F13 is the open-source AI assistant ("KI-Assistenz") of the State of
-Baden-Württemberg, developed by InnoLab_bw with PD and operated at BITBW. It has
-been open source since 23 July 2025. The code is on openCode under
-MPL-2.0: <https://gitlab.opencode.de/f13>.
+Die Demo ist intern und dient als **Nachweis für meine Zielvereinbarung**. Ich zeige, dass ich F13
+verstehe, selbst betreiben kann und anderen vorführen kann.
 
-- Browser-based assistant for drafting text, processing documents and research.
-- Built for open-source LLMs. It can run fully self-hosted without an external
-  cloud, but it can also use hosted models.
-- It is a set of microservices. A central **Core** service connects the
-  **Frontend** to the feature services:
-
-| Repo (`gitlab.opencode.de/f13/microservices/…`) | Role |
+| Eckdaten | Festgelegt |
 | --- | --- |
-| `frontend` / `f13-frontend` | Web UI |
-| `core` | API layer between frontend and services (v3: APISIX gateway) |
-| `chat` | Chat against local or externally hosted LLMs |
-| `summary` | Map-reduce summaries of documents |
-| `parser` | Turns `.pdf` / `.docx` into text (latest seen: v2.1.5, CPU-only by default) |
-| `rag` | Natural-language search over texts and databases |
+| Zielgruppe | Intern: Führungskraft und Kolleg:innen |
+| Betrieb | **Vollständig lokal**, nur CPU, keine Cloud, keine GPU |
+| Modell | Kleines Open-Weight-Modell (3–4 B) über **Ollama** |
+| Funktionen | Chat, Zusammenfassung, **RAG** |
+| RAG-Thema | **Pokémon** (siehe §4) |
+| Sprache | **Nur Deutsch**: Oberfläche, Wissensbasis, Prompts, Doku |
 
-> **Not yet verified:** These details come from secondary sources and still need
-> checking against the official READMEs: the frontend stack (React or Svelte),
-> guest mode vs. Keycloak login in v3, the OPA sidecar that chat v3 needs, and the
-> exact compose files. `gitlab.opencode.de` was blocked from the environment where
-> this plan was written.
+## 2. Was ist F13?
 
-## 2. Demo goal (proposed default)
+F13 ist die Open-Source-KI-Assistenz des Landes Baden-Württemberg. Entwickelt wurde sie
+vom InnoLab_bw mit PD, betrieben wird sie bei BITBW. Seit dem 23.07.2025 steht sie unter
+MPL-2.0 auf openCode: <https://gitlab.opencode.de/f13>.
 
-A **self-hosted, reproducible F13 instance** that starts with one command and
-runs a short scripted walkthrough of about 10 minutes:
+F13 besteht aus Microservices. Ein zentraler **Core** verbindet das Frontend mit den
+Fachdiensten:
 
-1. **Chat:** ask a question in plain language, then draft a citizen-facing
-   letter ("Bürgerbrief") in simple language ("Leichte Sprache").
-2. **Summary:** upload a public PDF, such as a published administrative
-   regulation, and get a structured summary.
-3. *(Optional)* **RAG:** search a small knowledge base of public documents and
-   get answers with sources.
-4. **Sovereignty:** show that the model runs locally or on a German or EU
-   provider and that no data leaves the setup.
+| Repo (`gitlab.opencode.de/f13/microservices/…`) | Rolle in der Demo |
+| --- | --- |
+| `frontend` / `f13-frontend` | Weboberfläche |
+| `core` | Schnittstelle zwischen Frontend und Diensten (v3: APISIX-Gateway) |
+| `chat` | Chat mit lokalem LLM |
+| `summary` | Zusammenfassung von Dokumenten (Map-Reduce) |
+| `parser` | PDF/DOCX → Text (CPU-Image, zuletzt gesehen v2.1.5) |
+| `rag` | Suche in natürlicher Sprache über die Pokémon-Wissensbasis |
 
-## 3. Architecture for the demo
+> **Noch nicht verifiziert:** Diese Punkte stammen aus Sekundärquellen und werden in Phase 1
+> gegen die offiziellen READMEs geprüft:
+> - Frontend-Stack (React oder Svelte)
+> - Gastmodus oder Keycloak-Login in v3
+> - OPA-Sidecar für Chat v3
+> - Welches Embedding-Modell und welche Vektor-DB RAG nutzt, und ob sich beides über
+>   Ollama betreiben lässt
+>
+> `gitlab.opencode.de` war in der Umgebung, in der dieser Plan entstand, gesperrt.
+
+## 3. Architektur (lokal, nur CPU)
 
 ```
-Browser ──► Frontend ──► Core (APISIX) ──┬─► Chat ────┐
-                                         ├─► Summary ─┼─► LLM endpoint (OpenAI-compatible)
-                                         │     └─► Parser
-                                         └─► RAG (optional) ──► vector DB
+Browser ──► Frontend ──► Core (APISIX) ──┬─► Chat ─────────────┐
+                                         ├─► Summary ──► Parser├─► Ollama :11434
+                                         └─► RAG ──► Vektor-DB ┘    ├─ LLM (3–4 B, Q4)
+                                                                    └─ Embeddings (bge-m3)
 ```
 
-There are three options for the LLM endpoint (see open question Q2):
+Ollama stellt unter `http://<host>:11434/v1/` eine OpenAI-kompatible API bereit, mit
+`/v1/chat/completions` und `/v1/embeddings`. Laut offizieller Doku ist diese Schicht noch
+„experimental“. Deshalb pinnen wir die Ollama-Version.
 
-| Option | Good for | Requirements |
+### Modellwahl
+
+Wir machen in Phase 2 einen Vergleich mit 5 deutschen Test-Prompts. Kandidaten:
+
+| Modell | Ollama-Tag | Größe (Q4) | Warum |
+| --- | --- | --- | --- |
+| Qwen 3.5 4B | `qwen3.5:4b` | ca. 3,4 GB | Wird 2026 am häufigsten für CPU-only empfohlen |
+| Llama 3.2 3B | `llama3.2:3b` | ca. 2 GB | Deutsch offiziell unterstützt, schnell |
+| Gemma 4 (klein) | `gemma4:*` | ca. 1,5–3 GB | Schnellste Option, Deutsch ungetestet |
+| **Embeddings:** BGE-M3 | `bge-m3` | ca. 1,2 GB | Mehrsprachig und stark für Deutsch; 8k Kontext |
+
+Bewertet werden: korrektes Deutsch, Treue zu den Quellen bei RAG, Tokens pro Sekunde auf
+meinem Rechner. Die genauen Tags und Größen prüfen wir vor dem Download auf ollama.com/library.
+
+### Ressourcenbudget (Annahme: 16 GB RAM)
+
+LLM ca. 4–5 GB, Embeddings ca. 1,5 GB, Vektor-DB ca. 1–2 GB, F13-Dienste ca. 2–3 GB.
+Das passt in **16 GB**. Mit 8 GB wird es eng: dann nehmen wir das kleinste Modell und
+lassen Dienste weg, wo es geht.
+
+## 4. RAG-Thema: „Landesamt für Pokémon-Angelegenheiten Kanto“
+
+**Idee:** Eine erfundene Behörde mit erfundenen Verwaltungsvorschriften rund um Pokémon. Das
+verbindet den Verwaltungskontext von F13 mit dem Nerd-Faktor.
+
+**Warum erfunden?**
+1. **Beweiskraft:** Das Modell kann diese Regeln nicht aus dem Training kennen. Eine
+   richtige Antwort beweist also, dass RAG funktioniert.
+2. **Keine Lizenzfragen:** Alle Texte schreiben wir selbst. Wir kopieren nichts aus Wikis,
+   übernehmen keine offiziellen Bilder oder Sprites und veröffentlichen nichts außerhalb der
+   Firma.
+3. **Kontrollierbar:** Zu jeder Testfrage gibt es eine bekannte richtige Antwort mit
+   Fundstelle.
+
+### Wissensbasis (`demo-data/rag/`, je 1–3 Seiten, als PDF und Markdown)
+
+| Nr. | Dokument | Inhalt (Beispiele) |
 | --- | --- | --- |
-| **A. Ollama** on a laptop or VM | Offline demo, cheap | ≥16 GB RAM, small model (7–14B); answers are slower |
-| **B. vLLM** on a GPU VM | Realistic speed, "like production" | GPU VM (e.g. 1× L4/A10/L40S); costs per hour |
-| **C. Hosted OpenAI-compatible API** (e.g. STACKIT AI Model Serving) | Fastest to set up | API key; data goes to the provider |
+| 1 | **VwV PokéHaltung**: Verwaltungsvorschrift über die Haltung von Pokémon in Dienstgebäuden | § 3: Feuer-Pokémon brauchen eine Brandschutzfreigabe. § 5: Relaxo darf keine Fluchtwege blockieren. § 7: Elektro-Pokémon haben Zutrittsverbot zum Serverraum. § 9: Psycho-Pokémon dürfen nicht an Personalgesprächen teilnehmen. |
+| 2 | **ArenaLizO**: Verordnung über die Erteilung von Arenalizenzen | Voraussetzungen (8 Orden, Sachkundenachweis), Gebühr, Fristen, Widerspruch |
+| 3 | **GebO Pokécenter**: Gebührenordnung der Pokécenter | Heilung gebührenfrei, Sonderleistungen (z. B. Wiederbelebung bei Fossilien), Ermäßigungen |
+| 4 | **Merkblatt Typenwirksamkeit für den Dienstgebrauch** | Echte Typentabelle (Wasser > Feuer usw.), selbst formuliert |
+| 5 | **FAQ Bürgeranfragen** des Professor-Eich-Instituts | „Wo melde ich ein entlaufenes Pokémon?“, „Wie beantrage ich einen Pokédex?“ |
+| 6 | **Dienstanweisung Pokéball-Inventur** | Jährliche Inventur, Verlustmeldung, Umgang mit Meisterbällen (Verschlusssache) |
 
-## 4. Phases
+### Testfragen mit Antwortschlüssel (`demo-data/rag/testfragen.md`)
 
-### Phase 0: Decisions (½ day)
-- Answer the open questions in §7, then fix the scope (2 or 3 features) and the
-  demo date.
+| Frage | Erwartete Antwort und Fundstelle |
+| --- | --- |
+| „Darf ich mein Glurak mit ins Büro bringen?“ | Nur mit Brandschutzfreigabe (VwV PokéHaltung § 3) |
+| „Was kostet eine Arenalizenz und wie lange dauert das Verfahren?“ | Betrag und Frist aus ArenaLizO |
+| „Welche Pokémon dürfen nicht in den Serverraum?“ | Elektro-Typen (VwV PokéHaltung § 7) |
+| „Wer darf Meisterbälle ausgeben?“ | Dienstanweisung Inventur, Abschnitt Verschlusssachen |
+| **Gegenprobe:** dieselbe Frage im Chat **ohne** RAG | Das Modell rät oder weiß es nicht. Das zeigt den Unterschied. |
 
-### Phase 1: Recon (½–1 day)
-- Clone `core`, `frontend`, `chat`, `summary` and `parser` (and `rag` if needed)
-  from openCode.
-- Read each README and pin the versions and image tags in `versions.env`.
-- Write down the config files for each service, e.g. summary uses
-  `general.yml`, `llm_models.yml` and `prompt_maps.yml`.
+## 5. Ablauf der Vorführung (ca. 10–12 Min.)
 
-### Phase 2: LLM backend (½ day)
-- Set up the chosen endpoint (A, B or C).
-- Smoke test: `curl …/v1/chat/completions` returns an answer.
-- Choose the model. It should be good in German, for example Mistral Small or a
-  Llama 3.x / Qwen instruct model, and its license must allow the demo.
+1. **Einstieg (1 Min.):** Was ist F13, und warum ist der lokale Betrieb wichtig? Ich zeige
+   kurz die Architekturskizze.
+2. **Chat (2 Min.):** Ablehnungsbescheid für einen Arenalizenz-Antrag in **Leichter
+   Sprache** schreiben lassen.
+3. **Zusammenfassung (2 Min.):** Die VwV PokéHaltung als PDF hochladen und eine
+   Kurzfassung mit Stichpunkten erzeugen.
+4. **RAG (4 Min.):** Die Testfragen stellen und die Quellenangaben zeigen. Danach die
+   Gegenprobe ohne RAG.
+5. **Souveränität (1 Min.):** WLAN aus und noch eine Frage stellen. Alles läuft weiter.
+6. **Grenzen und Fazit (2 Min.):** Geschwindigkeit auf CPU, Qualität eines 4B-Modells,
+   was der Produktivbetrieb bräuchte (GPU, größeres Modell).
 
-### Phase 3: Minimal stack: Chat (1 day)
-- Write `docker-compose.yml` in this repo with frontend, core, chat and an
-  LLM config pointing to the endpoint.
-- `make up` starts the stack; chat works in the browser.
+## 6. Phasen
 
-### Phase 4: Summary + Parser (½–1 day)
-- Add `summary` and the CPU `parser` to the compose stack.
-- Test with 2–3 public PDFs (stored in `demo-data/`).
+| Phase | Inhalt | Aufwand |
+| --- | --- | --- |
+| **1. Erkundung** | Repos klonen und READMEs lesen. Versionen in `versions.env` pinnen. Die offenen Punkte aus §2 klären. | ½–1 Tag |
+| **2. Ollama und Modelle** | Ollama installieren, Kandidaten laden, Vergleich mit deutschen Prompts, `curl`-Rauchtest gegen `/v1/chat/completions` und `/v1/embeddings` | ½ Tag |
+| **3. Minimal-Stack Chat** | Eigene `docker-compose.yml` mit Frontend, Core und Chat gegen Ollama. `make up`; Chat läuft im Browser. | 1 Tag |
+| **4. Zusammenfassung + Parser** | Summary und CPU-Parser einbinden, mit Dokument 1 testen | ½ Tag |
+| **5. Wissensbasis schreiben** | Die 6 Dokumente aus §4 und den Antwortschlüssel schreiben, PDFs erzeugen | ½–1 Tag |
+| **6. RAG** | RAG-Dienst und Vektor-DB einbinden, Wissensbasis indexieren, Testfragen durchlaufen lassen und Trefferquote notieren | 1 Tag |
+| **7. Vorführreife** | `docs/DEMO-SKRIPT.md`, `scripts/healthcheck.sh`, `scripts/reset.sh`, Modelle vorladen (Warm-up), Bildschirmaufnahme als Fallback, Generalprobe | ½–1 Tag |
 
-### Phase 5 (optional): RAG (1 day)
-- Add the `rag` service and its vector DB, index `demo-data/`, and check that
-  answers include sources.
+**Gesamt: ca. 4–6 Tage.**
 
-### Phase 6: Make it demo-ready (½–1 day)
-- `docs/DEMO-SCRIPT.md`: click-by-click script with the exact prompts and
-  expected results.
-- `scripts/healthcheck.sh`: checks all services and the LLM before going on stage.
-- `scripts/reset.sh`: clears chat history and uploads.
-- **Fallback:** a screen recording of the full run in case the network or GPU
-  fails.
-- One full dry run on the target machine.
+## 7. Nachweis für die Zielvereinbarung
 
-**Estimated effort:** 3–5 days, depending on RAG and on how well the upstream
-compose files work.
+| Nachweis | Ablage |
+| --- | --- |
+| Lauffähiges Repo mit Commit-Historie | dieses Repo |
+| **Lerntagebuch**: was ich gelernt habe, Probleme und Lösungen, pro Phase | `docs/LERNTAGEBUCH.md` |
+| Architekturerklärung in eigenen Worten | `docs/ARCHITEKTUR.md` |
+| Ergebnis des Modellvergleichs und Messwerte der RAG-Testfragen | `docs/MESSWERTE.md` |
+| Vorführung live und als Aufzeichnung | Termin und Datei |
+| Anleitung „In 15 Minuten selbst starten“ für Kolleg:innen | `README.md` |
 
-## 5. Proposed repo layout
+## 8. Repo-Struktur
 
 ```
 f13-demo/
-├── docker-compose.yml        # whole demo stack
-├── versions.env              # pinned F13 image tags/commits
-├── config/                   # per-service config (llm_models.yml, prompt maps, …)
-├── demo-data/                # public sample documents only
-├── scripts/                  # up/down, healthcheck, reset
-├── docs/
-│   ├── PLAN.md               # this file
-│   └── DEMO-SCRIPT.md        # walkthrough
-└── Makefile                  # make up / down / check / reset
+├── README.md                 # Schnellstart (Deutsch)
+├── Makefile                  # make up / down / check / reset / index
+├── docker-compose.yml        # kompletter Demo-Stack
+├── versions.env              # gepinnte F13-Images, Ollama-Version, Modell-Tags
+├── config/                   # Dienst-Konfiguration (llm_models.yml, Prompts, …)
+├── demo-data/
+│   ├── summary/              # Dokument für die Zusammenfassung
+│   └── rag/                  # Pokémon-Wissensbasis + testfragen.md
+├── scripts/                  # healthcheck.sh, reset.sh, warmup.sh
+└── docs/
+    ├── PLAN.md               # dieses Dokument
+    ├── DEMO-SKRIPT.md
+    ├── ARCHITEKTUR.md
+    ├── LERNTAGEBUCH.md
+    └── MESSWERTE.md
 ```
 
-## 6. Risks
+## 9. Risiken
 
-| Risk | Mitigation |
+| Risiko | Gegenmaßnahme |
 | --- | --- |
-| Upstream compose files or docs are incomplete or don't match v3 | Recon phase first; pin versions; keep our own compose file |
-| Login/auth (Keycloak vs. guest mode) blocks the demo | Prefer guest mode for the demo; add Keycloak only if login is needed |
-| Local model too slow or weak in German | Test early (Phase 2); keep option C as a backup |
-| GPU VM not available on demo day | Book or start it ahead of time; have the recording as fallback |
-| Data protection | Only public documents; no real personal data in prompts |
-| Network or venue Wi-Fi | Option A/B runs fully offline; recording as fallback |
+| Antworten auf CPU zu langsam | Kleinstes brauchbares Modell, kurze Dokumente, Warm-up vor der Vorführung, Kontextlänge begrenzen |
+| 4B-Modell halluziniert trotz RAG | Antwortschlüssel; Prompt „nur aus Quellen antworten“; Fragen wählen, die zuverlässig klappen |
+| RAG-Dienst erwartet ein Embedding-Modell oder eine DB, die nicht zu Ollama passt | Phase 1 klärt das. Notfalls läuft das Embedding-Modell als eigener Container. |
+| Upstream-Doku unvollständig oder nicht passend zu v3 | Versionen pinnen, eigene Compose-Datei, Probleme im Lerntagebuch festhalten |
+| Login (Keycloak) blockiert | Für die Demo den Gastmodus nutzen |
+| Zu wenig RAM | Modell oder Dienste verkleinern; siehe §3 |
+| Markenrecht Pokémon | Nur intern, nur eigene Texte, keine offiziellen Bilder, keine Veröffentlichung |
 
-## 7. Open questions
+## 10. Noch offen
 
-1. **Audience and purpose:** internal showcase, customer or authority pitch,
-   conference talk, or a hands-on workshop?
-2. **LLM backend:** A (Ollama, local), B (vLLM on GPU) or C (hosted API)? Is
-   there a GPU or a cloud account available?
-3. **Where does it run?** A presenter's laptop, a cloud VM, or a shared URL
-   that others can open?
-4. **Features:** chat + summary only, or RAG as well? Is there a specific use
-   case or document set that should be shown?
-5. **Language and branding:** should the UI and demo be in German (F13
-   default) or English? Any custom branding?
-6. **Deadline:** when is the demo?
+1. **Rechner:** Betriebssystem (Windows, macOS oder Linux), RAM, CPU. Ist Docker Desktop
+   bzw. Docker Engine erlaubt und installiert?
+2. **Termin** der Vorführung
 
-## Sources
+## Quellen
 
-- [F13 KI Assistenz – EU OSS Catalogue](https://interoperable-europe.ec.europa.eu/eu-oss-catalogue/solutions/f13-ki-assistenz)
+- [F13 KI Assistenz – EU-OSS-Katalog](https://interoperable-europe.ec.europa.eu/eu-oss-catalogue/solutions/f13-ki-assistenz)
 - [F13 KI Assistenz – openCode](https://opencode.de/de/software/f-13-ki-assistenz-5250)
-- [F13 wird Open Source – Staatsanzeiger](https://www.staatsanzeiger.de/nachrichten/politik-und-verwaltung/f13-wird-open-source-baden-wuerttemberg-bringt-ki-in-die-verwaltung/)
-- [KI-Assistenz F13 wird Open-Source-Software – Treffpunkt Kommune](https://www.treffpunkt-kommune.de/der-startschuss-fuer-ein-souveraenes-europaeisches-ki-oekosystem-ki-assistenz-f13-wird-open-source-software/)
-- [F13 Kennenlernen – f13-os.de](https://f13-os.de/kennenlernen/)
-- [openCode F13 group](https://gitlab.opencode.de/f13) – microservices: [chat](https://gitlab.opencode.de/f13/microservices/chat), [core](https://gitlab.opencode.de/f13/microservices/core), [frontend](https://gitlab.opencode.de/f13/microservices/frontend), [summary](https://gitlab.opencode.de/f13/microservices/summary), [parser releases](https://gitlab.opencode.de/f13/microservices/parser/-/releases), [rag](https://gitlab.opencode.de/f13/microservices/rag)
-- [STACKIT F13 offering](https://stackit.de/en/?p=43779021)
-- [vLLM OpenAI-compatible server](https://docs.vllm.ai/en/v0.8.5/serving/openai_compatible_server.html)
+- [Staatsanzeiger: F13 wird Open Source](https://www.staatsanzeiger.de/nachrichten/politik-und-verwaltung/f13-wird-open-source-baden-wuerttemberg-bringt-ki-in-die-verwaltung/)
+- [Treffpunkt Kommune: F13 wird Open-Source-Software](https://www.treffpunkt-kommune.de/der-startschuss-fuer-ein-souveraenes-europaeisches-ki-oekosystem-ki-assistenz-f13-wird-open-source-software/)
+- [f13-os.de – Kennenlernen](https://f13-os.de/kennenlernen/)
+- F13-Repos: [Gruppe](https://gitlab.opencode.de/f13), [Chat](https://gitlab.opencode.de/f13/microservices/chat), [Core](https://gitlab.opencode.de/f13/microservices/core), [Frontend](https://gitlab.opencode.de/f13/microservices/frontend), [Summary](https://gitlab.opencode.de/f13/microservices/summary), [Parser-Releases](https://gitlab.opencode.de/f13/microservices/parser/-/releases), [RAG](https://gitlab.opencode.de/f13/microservices/rag)
+- [Ollama – OpenAI-Kompatibilität](https://docs.ollama.com/api/openai-compatibility.md)
+- [Ollama – bge-m3](https://registry.ollama.ai/library/bge-m3)
+- [Embedding-Modelle für Deutsch 2026 – WZ-IT](https://wz-it.com/blog/embedding-modelle-deutsch-vergleich/)
+- [Best CPU-only local LLMs 2026 – Popular AI](https://www.popularai.org/p/best-cpu-only-local-llm-2026)
+- [Qwen 3.5 mit Ollama – Apidog](https://apidog.com/blog/use-qwen-3-5-with-ollama/)
+- [Ollama-Qwen-Tags – AgenticWire](https://www.agenticwire.news/article/ollama-qwen)
