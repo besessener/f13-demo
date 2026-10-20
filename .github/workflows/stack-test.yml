@@ -112,14 +112,17 @@ jobs:
         run: docker compose run --rm api-doku
 
       - name: Smoke-Test (echte Anfragen)
+        timeout-minutes: 15
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm smoke-test
 
       - name: Vorführung im Terminal
+        timeout-minutes: 20
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm -e FRAGEN=3 -e TEMPO=0 vorfuehrung
 
       - name: Modellvergleich (Mini-Modell, prüft nur das Werkzeug)
+        timeout-minutes: 10
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm -e MODELLE="${CI_LLM_MODELL}" -e MAX_TOKENS=40 modellvergleich
 
