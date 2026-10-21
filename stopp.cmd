@@ -5,6 +5,7 @@ rem  Stoppt alle Container. Modelle und Daten bleiben erhalten (kein "-v").
 rem ===========================================================================
 chcp 65001 >nul
 cd /d "%~dp0"
+set "COMPOSE_PROGRESS=plain"
 docker compose down
 echo.
 echo Gestoppt. Modelle und Daten bleiben erhalten. Neu starten mit start.cmd
