@@ -9,6 +9,9 @@ rem ===========================================================================
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
+rem Fortschritt als einfache Zeilen. Die animierte Anzeige stapelt in der Konsole
+rem neue Zeilen, sobald eine Meldung breiter als das Fenster ist.
+set "COMPOSE_PROGRESS=plain"
 rem Frontend-Port aus .env lesen (Standard 9999).
 set "FRONTEND_PORT=9999"
 for /f "tokens=1,* delims==" %%a in ('findstr /b "FRONTEND_PORT=" .env') do set "FRONTEND_PORT=%%b"
