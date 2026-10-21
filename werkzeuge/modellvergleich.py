@@ -26,6 +26,8 @@ import urllib.request
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
 LLM_MODELL = os.environ.get("LLM_MODELL", "llama3.2:3b")
 EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
+SPRACHMODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
+EMBEDDING = os.environ.get("EMBEDDING", "f13-embedding")
 MODELLE = [m.strip() for m in os.environ.get(
     "MODELLE", "llama3.2:3b,qwen3.5:2b,gemma4:e2b,gemma3:1b").split(",") if m.strip()]
 DATEN = os.environ.get("DEMO_DATEN", "/demo-data")
@@ -156,7 +158,7 @@ def main():
                 laden(modell)
                 selbst_geladen = True
             # Andere Modelle entladen, damit der RAM-Wert nur dieses Modell zeigt.
-            for anderes in (LLM_MODELL, EMBEDDING_MODELL, "f13-sprachmodell", "f13-embedding", *MODELLE):
+            for anderes in (LLM_MODELL, EMBEDDING_MODELL, SPRACHMODELL, EMBEDDING, *MODELLE):
                 if anderes != modell:
                     entladen(anderes)
             ergebnisse = messen(modell, liste)
@@ -204,6 +206,7 @@ def main():
                 f.write(f"\n### {e['name']} – {komma(e['tps'])} Tokens/s, {komma(e['dauer'])} s\n\n")
                 f.write("> " + e["antwort"].replace("\n", "\n> ") + "\n")
     print(f"\nAntworten zum Bewerten: ausgabe/modellvergleich.md")
+    print("Die Demo-Modelle sind jetzt entladen. Vor der Vorführung: docker compose run --rm warmup")
     return 0 if any(t is not None for _, t, *_ in zusammenfassung) else 1
 
 

@@ -22,7 +22,7 @@ Damit sind diese Punkte geklärt:
 | Summary-Anfrageformat (`/summary/text`, `/summary/file`) | ✔ laut OpenAPI, `/summary/text` liefert eine Zusammenfassung |
 | RAG ohne Reranker | ✘ RAG verlangt `reranking`. Gelöst mit dem Dienst `reranker`. |
 | Frontend ohne Transkription | ✘ nginx erwartet `tusd`. Gelöst mit einem Netzwerk-Alias. |
-| Summary ohne Token-Grenze | ✘ lief endlos. Gelöst mit `max_tokens: 800`. |
+| Summary ohne Token-Grenze | ✘ lief endlos. `max_tokens: 800` in `config/f13/llm_models.yml` hat allein nicht gereicht (siehe „Endlose Antworten kleiner Modelle“). Ob Summary den Wert überhaupt auswertet, ist offen. |
 | APISIX-Standard-Timeout | ✘ 60 s zu kurz. Gelöst mit 900 s für chat, summary, rag. |
 | RAG im Dateimodus (`/rag/file`) | ✔ Antwort mit Quellen (Datei und Seite). Die Pipeline des Images erwartet die ID `test_model_mock`; die ist als Alias vorhanden. |
 | Endlose Antworten kleiner Modelle | ✘ Ein Summary-Abschnitt hing 15 Minuten. Gelöst mit `f13-sprachmodell` (`num_predict` = `LLM_MAX_TOKENS`). |

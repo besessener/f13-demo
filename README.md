@@ -63,7 +63,9 @@ Beenden mit `stopp.cmd`.
 Versionen, Ports und Modelle stehen in `.env`. Für ein anderes Sprachmodell nur
 `LLM_MODELL` ändern und `start.cmd` erneut ausführen. Beim Start legt `modelle-laden` daraus
 die festen Namen `f13-sprachmodell` und `f13-embedding` an, unter denen F13 die Modelle
-anspricht. `LLM_MAX_TOKENS` begrenzt die Länge jeder Antwort.
+anspricht. `LLM_MAX_TOKENS` ist die Standardgrenze für die Länge einer Antwort. Schickt ein
+F13-Dienst eine eigene Grenze mit (z. B. `max_new_tokens` in `config/*/llm_models.yml`),
+gilt für diese Anfrage dessen Wert.
 
 ## Fehlerbehebung
 

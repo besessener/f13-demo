@@ -31,8 +31,11 @@ Der GitHub-Runner (4 CPU, 16 GB) hat den kompletten Stack mit dem Mini-Modell
 | frontend | 5 MiB |
 | **Summe ohne Sprachmodell** | **ca. 2,1 GB** |
 
-Dazu kommt Ollama mit `llama3.2:3b` (ca. 2,5 GB inkl. Embedding-Modell). Das ergibt
-ca. 4,6 GB und liegt damit im 5-GB-Limit von `.wslconfig`.
+Dazu kommt Ollama mit `llama3.2:3b` und `granite-embedding:278m`. Das ist noch nicht
+gemessen. Geschätzt: ca. 2 GB Gewichte des Sprachmodells, dazu der KV-Cache für 4096 Tokens
+und ca. 0,6 GB für das Embedding-Modell, zusammen eher um 3 GB. Insgesamt wären das
+ca. 5 GB, also am 5-GB-Limit von `.wslconfig`; ein Teil kann im Swap landen. Auf dem
+Laptop nach `warmup` mit `docker stats --no-stream` nachmessen und hier eintragen.
 
 Dauer auf dem Runner mit dem Mini-Modell: Zusammenfassung des 3-seitigen PDFs 114 s,
 Recherche über alle 6 PDFs 31 s. Auf dem Laptop mit dem 3B-Modell wird es deutlich

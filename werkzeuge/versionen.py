@@ -133,8 +133,7 @@ def main():
                 print(f"    ✘ {aktuell} nicht gefunden – {variable} in .env anpassen.")
         print(flush=True)
 
-    print("Hinweis: Bei summary, rag und parser sind Image-Pfad und Tag in docker-compose.yml")
-    print("nur geraten. Weicht der Image-Pfad oben ab, bitte docker-compose.yml anpassen.")
+    print("Hinweis: Weicht ein Image-Pfad oben von docker-compose.yml ab, bitte dort anpassen.")
     if probleme:
         print(f"\n✘ {probleme} Version(en) aus .env nicht bestätigt (siehe oben).")
         return 1

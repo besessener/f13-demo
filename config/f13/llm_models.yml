@@ -41,7 +41,8 @@ summary:
     inference:
       max_retries: 1
       # Ohne Grenze schreibt ein kleines Modell bei der Gesamtzusammenfassung
-      # endlos weiter (in der CI beobachtet).
+      # endlos weiter (in der CI beobachtet). Dieser Wert allein hat das nicht
+      # verhindert; wirksam ist num_predict in f13-sprachmodell (LLM_MAX_TOKENS).
       max_tokens: 800
 
 rag:
