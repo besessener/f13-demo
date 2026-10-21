@@ -12,6 +12,7 @@
 #   docker compose run --rm testfragen         Gegenprobe: Testfragen ohne RAG stellen
 #   docker compose run --rm versionen          Verfügbare F13-Image-Tags anzeigen (Internet)
 #   docker compose run --rm smoke-test         Echte Anfragen an Chat, Summary und RAG
+#   docker compose run --rm wissensbasis       Pokémon-Regeln in die RAG-Datenbank laden
 #   docker compose run --rm api-doku           API-Beschreibungen nach ausgabe/openapi/
 #   docker compose run --rm modellvergleich    Sprachmodelle vergleichen (Tempo, RAM, Antworten)
 #   docker compose run --rm vorfuehrung        Die ganze Vorführung im Terminal (Rückfallebene)
@@ -290,6 +291,8 @@ services:
     volumes:
       - ./config/f13/general.yml:/rag/configs/general.yml:ro
       - ./config/f13/llm_models.yml:/rag/configs/llm_models.yml:ro
+      # Eigene Quelle „Pokémon-Regeln“ für die Wissensdatenbank (statt der Beispiele im Image).
+      - ./config/rag/rag_pipeline_config.yml:/rag/configs/rag_pipeline_config.yml:ro
     depends_on:
       modelle-laden:
         condition: service_completed_successfully
@@ -418,6 +421,25 @@ services:
       TESTFRAGEN_DATEI: /demo-data/rag/testfragen.md
     depends_on:
       ollama:
+        condition: service_healthy
+
+  # Lädt die Pokémon-Regeln in die RAG-Datenbank (Elasticsearch). start.cmd ruft das bei
+  # jedem Start auf; geladen wird nur, wenn sich die Dokumente geändert haben.
+  # Neu laden erzwingen: docker compose run --rm -e NEU=1 wissensbasis
+  wissensbasis:
+    <<: *werkzeug
+    command: ["python", "/werkzeuge/wissensbasis.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - ./demo-data:/demo-data:ro
+    environment:
+      <<: *werkzeug-umgebung
+      RAG_URL: http://rag:8000
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      rag:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
 
   # Echte Anfragen an Chat, Summary und RAG (über Core).

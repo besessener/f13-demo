@@ -3,6 +3,7 @@
 Aufruf (PowerShell):
   docker compose run --rm vorfuehrung
   docker compose run --rm -e FRAGEN=1,3,6 vorfuehrung
+  docker compose run --rm -e RAG_MODUS=datei vorfuehrung   (PDFs hochladen statt Wissensdatenbank)
 
 Zeigt dieselben Schritte wie die Vorführung im Browser (docs/DEMO-SKRIPT.md), aber
 automatisch und mit Zeitmessung. Gedacht als Rückfallebene, falls die Oberfläche hakt, und
@@ -25,6 +26,8 @@ from testfragen import fragen_lesen
 FRAGEN = [int(n) for n in os.environ.get("FRAGEN", "1,3,4").split(",") if n.strip()]
 BREITE = 88
 TEMPO = float(os.environ.get("TEMPO", "0.6"))  # Pause zwischen Abschnitten in Sekunden
+# "datenbank": Wissensdatenbank „Pokémon-Regeln“ (vorher: wissensbasis); "datei": PDFs hochladen
+RAG_MODUS = os.environ.get("RAG_MODUS", "datenbank")
 
 
 def zeile(zeichen="─"):
@@ -80,7 +83,10 @@ def schritt_zusammenfassung():
 def schritt_recherche():
     titel("3", "Recherche (RAG) in der Pokémon-Wissensbasis")
     pdfs = sorted(glob.glob(f"{api.DATEN}/rag/0*.pdf"))
-    print(f"\nDokumente: {', '.join(os.path.basename(p) for p in pdfs)}")
+    if RAG_MODUS == "datei":
+        print(f"\nHochgeladene Dokumente: {', '.join(os.path.basename(p) for p in pdfs)}")
+    else:
+        print(f"\nWissensdatenbank: {api.WISSENSBASIS} ({len(pdfs)} Dokumente, vorab geladen)")
     with open(f"{api.DATEN}/rag/testfragen.md", encoding="utf-8") as datei:
         _, alle = fragen_lesen(datei.read())
     schluessel = antwortschluessel()
@@ -93,7 +99,10 @@ def schritt_recherche():
         zeile()
         print(f" Frage {nummer}: {frage}")
         zeile()
-        status, text, sek = api.recherche_dateien(pdfs, frage)
+        if RAG_MODUS == "datei":
+            status, text, sek = api.recherche_dateien(pdfs, frage)
+        else:
+            status, text, sek = api.recherche_datenbank(frage)
         block("Mit RAG (F13 + Dokumente):", api.text_aus(text))
         quellen = api.quellen_aus(text)
         if quellen:

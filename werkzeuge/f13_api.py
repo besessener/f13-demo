@@ -18,6 +18,8 @@ EMBEDDING_MODELL = os.environ.get("EMBEDDING", "f13-embedding")
 F13_MODELL_ID = os.environ.get("F13_MODELL_ID", "llama_lokal")
 DATEN = os.environ.get("DEMO_DATEN", "/demo-data")
 TIMEOUT_S = int(os.environ.get("F13_TIMEOUT_S", "900"))
+# Quelle der Wissensdatenbank (config/rag/rag_pipeline_config.yml, werkzeuge/wissensbasis.py).
+WISSENSBASIS = os.environ.get("WISSENSBASIS_QUELLE", "Pokémon-Regeln")
 
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -87,6 +89,20 @@ def recherche_dateien(pfade, frage):
         [("files",) + pdf(p)[1:] for p in pfade])
 
 
+def recherche_datenbank(frage):
+    """POST /rag/database – RAGInput (rag v3.1.1): Frage an die Wissensdatenbank.
+
+    Ohne meta_data_filters, also über alle Quellen; die Demo hat nur „Pokémon-Regeln“.
+    """
+    return json_senden(f"{CORE_URL}/rag/database",
+                       {"question": frage, "language_model": F13_MODELL_ID})
+
+
+def quellen_der_datenbank():
+    """GET /rag/sources – Quellen, die die Oberfläche unter „Wissensdatenbank auswählen“ zeigt."""
+    return senden(f"{CORE_URL}/rag/sources")
+
+
 def ohne_rag(frage):
     """Gegenprobe: dieselbe Frage direkt an das Sprachmodell, ohne Dokumente."""
     return json_senden(f"{OLLAMA_URL}/api/chat", {
@@ -132,8 +148,10 @@ def quellen_aus(antwort_text):
     for eintrag in kandidaten:
         if isinstance(eintrag, dict):
             meta = eintrag.get("meta") or {}
-            # RAG v3.1.1: meta = {"Datei": "...", "Seite im Dokument": 2}
-            name = (meta.get("Datei") or eintrag.get("source") or eintrag.get("title")
+            # RAG v3.1.1, Datei-Modus: meta = {"Datei": "...", "Seite im Dokument": 2}
+            # Datenbank-Modus: Titel und Quelle (deutsche Namen laut db2ui_map, sonst title/source)
+            name = (meta.get("Datei") or meta.get("Titel") or meta.get("title")
+                    or eintrag.get("source") or eintrag.get("title") or meta.get("Quelle")
                     or meta.get("source") or meta.get("file_name") or eintrag.get("url") or "")
             seite = meta.get("Seite im Dokument")
             if name and seite:
