@@ -61,7 +61,7 @@ erreichbar, z. B. `http://ollama:11434`.
 | `parser` | F13 `parser` (CPU) | Wandelt PDF/DOCX in Text um. Wird von `summary` und `rag` aufgerufen. Lädt beim ersten Start seine PDF-Modelle (docling) von `huggingface.co` und öffnet erst danach Port 8000. Die Modelle liegen im Volume `parser-modelle`. |
 | `rag` | F13 `rag` | Recherche: Dokumente in Abschnitte teilen, Embeddings berechnen, passende Abschnitte suchen und eine Antwort mit Quellen erzeugen. |
 | `reranker` | eigener kleiner Dienst (`werkzeuge/reranker.py`) | F13 RAG verlangt einen Reranker mit Cohere-Schnittstelle. Ein echtes Reranking-Modell bräuchte ca. 1 GB RAM. Dieser Dienst sortiert die Treffer stattdessen nach gemeinsamen Stichwörtern mit der Frage (BM25-artig) und braucht ca. 20 MB. Er trägt außerdem den Netzwerknamen `tusd`, den das Frontend-nginx beim Start erwartet. |
-| `elasticsearch` | Elasticsearch 8 | Vektor-Datenbank für den Datenbank-Modus von RAG. Im Demo-Hauptweg (Datei-Modus) optional. Heap auf 512 MB begrenzt. |
+| `elasticsearch` | Elasticsearch 8 | Vektor-Datenbank für die Wissensdatenbank von RAG (Index `wissensdatenbank`). Heap auf 512 MB begrenzt. |
 | `feedback` + `feedback-db` | F13 `feedback` + Postgres | Speichert Daumen hoch/runter aus der Oberfläche. Für die Demo Nebensache, aber Teil des Standard-Stacks. |
 | `zertifikate` | eigener Einmal-Container (`werkzeuge/zertifikate.py`) | Läuft bei jedem `up` vor `parser` und `ollama`. Schreibt die öffentlichen Stammzertifikate plus eigene aus `config/zertifikate/` ins Volume `zertifikate`. `parser`, `ollama` und `versionen` nutzen sie über `SSL_CERT_FILE`. Nötig hinter einem Firmen-Proxy, der HTTPS neu signiert; ohne Proxy nur die öffentlichen. |
 | `ollama` | `ollama/ollama` | Führt die Modelle aus: `llama3.2:3b` als LLM für chat/summary/rag (ID `llama_lokal`) und `granite-embedding:278m` für Embeddings (ID `granite_lokal`). |
@@ -118,7 +118,8 @@ Eine globale CORS-Regel erlaubt nur den Ursprung `http://localhost:9999`.
 
 ### Recherche (RAG) im Datei-Modus
 
-Das ist der Hauptweg der Demo.
+Rückfallebene, falls die Wissensdatenbank nicht geladen ist. Der Hauptweg ist die
+Wissensdatenbank (nächster Abschnitt).
 
 1. Im Reiter **Recherche** lade ich die 6 PDFs der Wissensbasis hoch und stelle eine Frage.
 2. Der Browser schickt Dateien und Frage an `http://localhost:8000/rag/file`. APISIX schreibt
@@ -138,9 +139,29 @@ Das ist der Hauptweg der Demo.
 **ANNAHME (ungeprüft):** Im Datei-Modus werden die Dateien bei jeder Frage neu verarbeitet
 und nicht dauerhaft gespeichert. Das kostet Zeit pro Frage.
 
-Der **Datenbank-Modus** (`/rag/database`, `/rag/sources`) sucht stattdessen in einem
-vorher befüllten Elasticsearch-Index. Wie der Index befüllt wird, ist noch ungeklärt; der
-Modus ist für die Demo optional.
+### Wissensdatenbank (Datenbank-Modus)
+
+Der Hauptweg der Demo. Die Dokumente werden einmal verarbeitet statt bei jeder Frage:
+
+1. `start.cmd` ruft `docker compose run --rm wissensbasis` auf (`werkzeuge/wissensbasis.py`).
+   Das schickt die sechs Markdown-Fassungen aus `demo-data/rag/` (ohne `testfragen.md`) an
+   `rag:8000/database_ingestion`, jeweils mit `source: "Pokémon-Regeln"` und dem Titel des
+   Dokuments. Dieser Weg geht nicht über den Core, ist also vom Browser aus nicht erreichbar.
+2. RAG teilt die Texte in Abschnitte, berechnet mit `f13-embedding` die Vektoren und
+   speichert sie im Elasticsearch-Index `wissensdatenbank`.
+3. Ein Prüfsummen-Eintrag im Index `f13-demo-wissensbasis` merkt sich den Stand. Bei
+   späteren Starts wird nur neu geladen, wenn sich die Dokumente geändert haben.
+4. Die Oberfläche fragt `/rag/sources` ab und zeigt die Quellen aus
+   `config/rag/rag_pipeline_config.yml` unter „Wissensdatenbank auswählen“, hier nur
+   „Pokémon-Regeln“.
+5. Eine Frage geht an `http://localhost:8000/rag/database`, gefiltert auf die gewählte
+   Quelle. RAG sucht im Index, sortiert mit dem Reranker, nimmt höchstens 3 Abschnitte und
+   lässt `f13-sprachmodell` daraus antworten.
+
+`config/rag/rag_pipeline_config.yml` ist die im Image eingebaute Datei. Geändert sind nur die
+Quellen (statt der Beispiele Koalitionsvertrag, Landesdrucksachen, Pressemitteilungen) und
+`document_summaries.llm_name: null` (Zusammenfassungen je Dokument braucht nur die
+hierarchische Suche, die aus ist).
 
 ## Warum Ollama im Container?
 

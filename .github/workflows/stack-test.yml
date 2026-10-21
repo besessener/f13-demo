@@ -123,6 +123,15 @@ jobs:
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
         run: docker compose run --rm api-doku
 
+      - name: Wissensdatenbank laden
+        timeout-minutes: 15
+        if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}
+        run: |
+          docker compose run --rm wissensbasis
+          # Zweiter Lauf darf nichts neu laden.
+          docker compose run --rm wissensbasis | tee ausgabe/wissensbasis-2.txt
+          grep -q "Schon geladen" ausgabe/wissensbasis-2.txt
+
       - name: Smoke-Test (echte Anfragen)
         timeout-minutes: 15
         if: ${{ !cancelled() && steps.start.outcome != 'skipped' }}

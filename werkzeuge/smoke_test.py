@@ -3,7 +3,8 @@
 Aufruf (PowerShell):  docker compose run --rm smoke-test
 
 Anders als "pruefen" (nur erreichbar ja/nein) prüft dieser Test, ob die Dienste wirklich
-antworten. Auf der CPU kann das einige Minuten dauern. Die Anfragen selbst stehen in
+antworten. Der Test der Wissensdatenbank setzt "docker compose run --rm wissensbasis" voraus
+(macht start.cmd). Auf der CPU kann das einige Minuten dauern. Die Anfragen selbst stehen in
 f13_api.py.
 
 Nur Python-Standardbibliothek.
@@ -62,12 +63,33 @@ def test_rag_datei():
     return status == 200, f"HTTP {status}: {kurz(antwort)}", sek
 
 
+def test_rag_quellen():
+    status, text, sek = api.quellen_der_datenbank()
+    if status != 200:
+        return False, f"HTTP {status}: {kurz(text)}", sek
+    if api.WISSENSBASIS not in text:
+        return False, f"„{api.WISSENSBASIS}“ fehlt: {kurz(text)}", sek
+    return True, f"„{api.WISSENSBASIS}“ ist auswählbar: {kurz(text, 200)}", sek
+
+
+def test_rag_datenbank():
+    status, antwort, sek = api.recherche_datenbank("Welche Pokémon dürfen nicht in den Serverraum?")
+    if status != 200:
+        return False, f"HTTP {status}: {kurz(antwort)}", sek
+    quellen = api.quellen_aus(antwort)
+    if not quellen:
+        return False, f"keine Quellen in der Antwort (Wissensdatenbank leer?): {kurz(antwort)}", sek
+    return True, f"{kurz(api.text_aus(antwort), 300)}  Quellen: {'; '.join(dict.fromkeys(quellen))}", sek
+
+
 TESTS = [
     ("Ollama: Antwort des Sprachmodells", test_ollama_antwort),
     ("Ollama: Embedding (/v1/embeddings)", test_ollama_embedding),
     ("Core → Chat: /chat/completion", test_chat),
     ("Core → Summary: /summary/text", test_summary),
     ("Core → RAG: /rag/file (PDF + Frage)", test_rag_datei),
+    ("Core → RAG: /rag/sources (Wissensdatenbank)", test_rag_quellen),
+    ("Core → RAG: /rag/database (Frage an die Wissensdatenbank)", test_rag_datenbank),
 ]
 
 

@@ -169,11 +169,15 @@ Serverraum (§ 7), Psycho-Pokémon nicht bei Personalgesprächen (§ 9).
 
 ## Teil 4: Recherche mit RAG (4 Minuten)
 
-**Klicken:** Reiter **Recherche**. Falls es eine Auswahl zwischen Datei und Datenbank gibt:
-**Datei**. Im Explorer `demo-data\rag\` öffnen, ins Suchfeld `*.pdf` tippen, Strg + A
-(6 PDFs von `01_vwv_pokehaltung.pdf` bis `06_dienstanweisung_inventur.pdf`, keine
-Markdown-Dateien) und alles in das Upload-Feld ziehen. Tipp: Diese
-Explorer-Ansicht schon vorher vorbereiten.
+**Klicken:** Reiter **Recherche** → **Wissensdatenbank auswählen** → **Pokémon-Regeln** →
+**Übernehmen**. Nichts hochladen: `start.cmd` hat die sechs Dokumente schon in die
+Wissensdatenbank geladen.
+
+**Rückfallebene** (Wissensdatenbank fehlt in der Auswahl oder antwortet ohne Quellen): Im
+Explorer `demo-data\rag\` öffnen, ins Suchfeld `*.pdf` tippen, Strg + A (6 PDFs von
+`01_vwv_pokehaltung.pdf` bis `06_dienstanweisung_inventur.pdf`, keine Markdown-Dateien) und
+alles in das Upload-Feld ziehen. Das dauert pro Frage länger, weil die PDFs jedes Mal neu
+verarbeitet werden.
 
 **Sagen:**
 > „Jetzt die eigentliche Probe. Das sind sechs Dokumente einer erfundenen Behörde, des
@@ -197,9 +201,10 @@ der Generalprobe. Die zwei Pflichtfragen haben die eindeutigsten Antworten.
 vergleichen.
 
 **Sagen, während es läuft:**
-> „Die PDFs werden in kurze Abschnitte zerlegt, jeder Abschnitt bekommt einen Vektor von
-> einem Embedding-Modell. Zur Frage werden die drei ähnlichsten Abschnitte gesucht, und nur
-> diese bekommt das Sprachmodell zu sehen, mit der Anweisung, nur daraus zu antworten.“
+> „Die Dokumente wurden beim Start in kurze Abschnitte zerlegt, jeder Abschnitt hat einen
+> Vektor von einem Embedding-Modell bekommen und liegt in einer Datenbank auf diesem Rechner.
+> Zur Frage werden die drei passendsten Abschnitte gesucht, und nur diese bekommt das
+> Sprachmodell zu sehen, mit der Anweisung, nur daraus zu antworten.“
 
 **Erwartet:** siehe Spickzettel. Glurak: nur mit schriftlicher Brandschutzfreigabe
 (Formblatt BS-17, 10 Arbeitstage vorher), § 3. Serverraum: Elektro-Pokémon wie Pikachu, auch
@@ -217,6 +222,8 @@ Kernaussage mit Fundstelle.
 > nichts. Genau das ist der Unterschied, den RAG macht.“
 
 **Falls es hakt:**
+- „Pokémon-Regeln“ fehlt in der Auswahl oder Antworten ohne Quelle: in Fenster 3
+  `docker compose run --rm wissensbasis`, bis dahin mit der Rückfallebene (Upload) weiter.
 - Upload hängt oder Fehler: `docker compose logs --tail 50 rag` in Fenster 3. Häufigste
   Ursache wäre der Parser: `docker compose logs --tail 50 parser`.
 - Antwort falsch oder ohne Quelle: offen ansprechen („kleines Modell, das ist eine der
@@ -227,8 +234,8 @@ Kernaussage mit Fundstelle.
 ## Teil 5: Souveränität (1 Minute)
 
 **Klicken:** Win + A (Schnelleinstellungen) → **WLAN-Kachel aus**. Das durchgestrichene
-WLAN-Symbol in der Taskleiste zeigen. Zurück zum Browser, Reiter **Recherche** (die PDFs sind
-noch hochgeladen).
+WLAN-Symbol in der Taskleiste zeigen. Zurück zum Browser, Reiter **Recherche** (die Wissensdatenbank
+„Pokémon-Regeln“ ist noch ausgewählt; sie liegt auf diesem Rechner).
 
 **Eingeben:**
 
@@ -262,7 +269,7 @@ Darf Simsala bei meinem Mitarbeitergespräch dabei sein?
 | 4096 Tokens Kontext, nur kurze Dokumente | Größerer Kontext für lange Akten |
 | Ein Nutzer, eine Anfrage zur Zeit | Mehrere parallele Anfragen, Lastverteilung |
 | Gastmodus ohne Login | Anmeldung über Keycloak, Rollen und Rechte (OPA) |
-| Recherche im Datei-Modus: Dokumente pro Sitzung hochladen | Datenbank-Modus mit dauerhaft indexierter Wissensbasis (Elasticsearch) |
+| Wissensdatenbank mit 6 kurzen Dokumenten, eine Quelle, beim Start geladen | Viele Quellen mit Rechten je Quelle, laufende Aktualisierung (Import-Prozess) |
 | Keine Transkription | Transkriptionsdienst ergänzen |
 | Teile der Konfiguration sind noch ungeprüfte Annahmen | Abgleich mit der offiziellen Doku, Betrieb mit Monitoring, Backups und Updates |
 

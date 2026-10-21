@@ -14,7 +14,7 @@ set "FRONTEND_PORT=9999"
 for /f "tokens=1,* delims==" %%a in ('findstr /b "FRONTEND_PORT=" .env') do set "FRONTEND_PORT=%%b"
 
 echo.
-echo [1/5] Prüfe, ob Rancher Desktop läuft ...
+echo [1/6] Prüfe, ob Rancher Desktop läuft ...
 docker version >nul 2>&1
 if errorlevel 1 (
   echo.
@@ -24,7 +24,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/5] Prüfe, ob ein Firmen-Proxy HTTPS neu signiert ...
+echo [2/6] Prüfe, ob ein Firmen-Proxy HTTPS neu signiert ...
 echo       (Siehe config\zertifikate\README.md)
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0werkzeuge\firmenzertifikat.ps1"
 if errorlevel 1 (
@@ -34,7 +34,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/5] Starte alle Container und warte, bis sie bereit sind ...
+echo [3/6] Starte alle Container und warte, bis sie bereit sind ...
 echo       (Beim ersten Mal: Frontend bauen + Modelle laden, das dauert.)
 docker compose up -d --wait --wait-timeout 1800
 if errorlevel 1 (
@@ -47,7 +47,17 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Prüfe alle Dienste ...
+echo [4/6] Lade die Wissensdatenbank „Pokémon-Regeln“ ...
+echo       (Nur beim ersten Mal oder wenn sich die Dokumente geändert haben.)
+docker compose run --rm wissensbasis
+if errorlevel 1 (
+  echo.
+  echo WARNUNG: Wissensdatenbank nicht geladen. Die Recherche mit hochgeladenen Dateien
+  echo          funktioniert trotzdem. Details:  docker compose logs rag
+)
+
+echo.
+echo [5/6] Prüfe alle Dienste ...
 docker compose run --rm pruefen
 if errorlevel 1 (
   echo.
@@ -55,7 +65,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [5/5] Wärme die Modelle vor ^(erste Antwort wird sonst langsam^) ...
+echo [6/6] Wärme die Modelle vor ^(erste Antwort wird sonst langsam^) ...
 docker compose run --rm warmup
 
 echo.

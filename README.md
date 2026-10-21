@@ -6,7 +6,8 @@
 Baden-Württemberg, läuft hier vollständig lokal auf einem Windows-Laptop mit 8 GB RAM und
 ohne GPU. Ein kleines Sprachmodell (Ollama) bedient Chat, Zusammenfassung und Recherche (RAG).
 Für die Recherche gibt es eine erfundene Wissensbasis zu Pokémon-Vorschriften
-(`demo-data/rag/`).
+(`demo-data/rag/`). Sie steht in der Oberfläche unter **Recherche → Wissensdatenbank
+auswählen → Pokémon-Regeln** bereit; alternativ lassen sich die PDFs hochladen.
 
 ## Voraussetzungen
 
@@ -32,6 +33,7 @@ Danach `start.cmd` doppelklicken:
 - erkennt einen Firmen-Proxy, der HTTPS neu signiert, und übernimmt dessen
   Stammzertifikat aus Windows (siehe [config/zertifikate/](config/zertifikate/README.md))
 - startet alle Container
+- lädt die Wissensdatenbank „Pokémon-Regeln“ für die Recherche (nur beim ersten Mal)
 - prüft jeden Dienst
 - lädt die Modelle vor
 - öffnet <http://localhost:9999>
@@ -50,6 +52,7 @@ Beenden mit `stopp.cmd`.
 | Dienste prüfen | `docker compose run --rm pruefen` |
 | Modelle vorladen | `docker compose run --rm warmup` |
 | Echte Anfragen an Chat, Summary, RAG | `docker compose run --rm smoke-test` |
+| Wissensdatenbank laden (neu: `-e NEU=1`) | `docker compose run --rm wissensbasis` |
 | Vorführung im Terminal (ohne Browser) | `docker compose run --rm vorfuehrung` |
 | Modelle vergleichen (Tempo, RAM) | `docker compose run --rm modellvergleich` (→ `ausgabe/modellvergleich.md`) |
 | Testfragen ohne RAG (Gegenprobe) | `docker compose run --rm testfragen` |

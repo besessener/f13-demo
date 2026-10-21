@@ -1,0 +1,66 @@
+# RAG-Pipeline (f13-demo). Gemountet nach /rag/configs/rag_pipeline_config.yml.
+# Quelle: die im Image rag v3.1.1 eingebaute Datei, unverändert bis auf "sources" (dort
+# standen Beispiele) und document_summaries.llm_name. Der Name der Quelle muss zu QUELLE
+# in werkzeuge/wissensbasis.py passen; die Oberfläche zeigt ihn unter
+# „Wissensdatenbank auswählen“.
+
+# Full configuration reference: docs/configuration.md and src/models/rag_config.py
+pipeline:
+  index:
+    database: wissensdatenbank
+    file: temporaryfile
+    documents: wissensdatenbank_documents  # document-level index, only used by the "hierarchical" retrieval stage
+  request_timeout: 10  # timeout for requests to Elasticsearch in seconds
+  max_retries: 2  # number of retries for failed requests to Elasticsearch
+  database_write_refresh: false  # false: don't wait for the ES refresh (no "read your writes"); wait_for: wait for next scheduled refresh; true: force a refresh per write (costly)
+
+  embedding_model_name: test_model_mock  # must be one of the embedding models defined in llm_models.yml
+  reranking_model_name: test_model_mock   # must be one of the reranking models defined in llm_models.yml or null
+
+  # Implementation per pipeline stage; all keys in src/rag/pipelines/pipeline_definitions/stage_registry.py
+  pipeline_stages:
+    file:
+      query_processing: default   # switch to "augmented" to expand the query via an LLM (see query_processing_config.augmentation)
+      retrieval: flat             # switch to "hierarchical" to enable hierarchical retrieval (document-level + chunk-level)
+      generation: default
+    database:
+      query_processing: default   # switch to "augmented" to expand the query via an LLM (see query_processing_config.augmentation)
+      retrieval: flat             # switch to "hierarchical" to enable hierarchical retrieval (document-level + chunk-level)
+      generation: default
+
+  query_processing_config:
+    cleaning:
+      enabled: true               # false: queries reach the retrievers exactly as received
+    augmentation:                 # LLM-generated query variants; only used by the "augmented" stage
+      llm_name: query_augmenter   # must be a model from the 'utility' section of llm_models.yml; the "augmented" stage fails to build without it
+      num_additional_queries: 3   # each variant costs 1 embedding call + 1 request per retriever, but adds no chunks downstream
+
+  retrieval_config:
+    retriever_top_k: 50           # documents per query and retriever
+    doc_retriever_top_k: 20       # documents from the document index in stage 1 of "hierarchical"
+    max_chunks_to_use: 20         # only /retrieval, when the request omits it; /database and /file use the answer model's value
+    document_summaries:
+      # f13-demo: aus. Nur die Suche "hierarchical" nutzt die Zusammenfassungen, und ein
+      # "utility"-Modell ist in llm_models.yml nicht eingetragen.
+      llm_name: null  # must be a model from the 'utility' section of llm_models.yml; null disables the summaries and leaves the document index empty
+
+  # defines the document sources available in the knowledge database
+  # f13-demo: eine Quelle („Pokémon-Regeln“) für die sechs Dokumente aus demo-data/rag/ (werkzeuge/wissensbasis.py).
+  sources:
+    - name: Pokémon-Regeln
+      date_filter: false
+
+# Defines the mapping of database fields to human-understandable texts to be displayed in UI
+# Adapt to your use case.
+# Examples:
+db2ui_map:
+  source: Quelle
+  date: Datum
+  title: Titel
+  file_name: Datei
+  page_number: Seite im Dokument
+  landesdrucksache_id: Landesdrucksache
+  type: Art der Anfrage
+  enquiring_fraction: Einreicher
+  responding_ministry: Ministerium
+  ministries: Ministerien
