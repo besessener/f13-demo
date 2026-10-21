@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
             anfrage = json.loads(self.rfile.read(laenge) or b"{}")
             frage = str(anfrage.get("query", ""))
             dokumente = [text_von(d) for d in anfrage.get("documents", [])]
-        except (ValueError, TypeError) as fehler:
+        except (ValueError, TypeError, AttributeError) as fehler:
             self._antwort(400, {"error": f"ungültige Anfrage: {fehler}"})
             return
         punkte = bewerten(frage, dokumente)

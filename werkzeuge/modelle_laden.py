@@ -29,8 +29,9 @@ EMBEDDING_MODELL = os.environ.get("EMBEDDING_MODELL", "granite-embedding:278m")
 # den Modellen in .env abgeleitet. So reicht für einen Modellwechsel eine Zeile in .env.
 SPRACHMODELL = os.environ.get("SPRACHMODELL", "f13-sprachmodell")
 EMBEDDING = os.environ.get("EMBEDDING", "f13-embedding")
-# Harte Obergrenze für jede Antwort. Ohne sie schreiben kleine Modelle manchmal endlos
-# weiter (in der CI bei der Zusammenfassung beobachtet).
+# Standardgrenze für jede Antwort (num_predict). Ohne sie schreiben kleine Modelle manchmal
+# endlos weiter (in der CI bei der Zusammenfassung beobachtet). Schickt eine Anfrage eine
+# eigene Grenze (max_tokens), hat diese bei Ollama Vorrang.
 MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "1024"))
 
 # Wartezeit auf das nächste Lebenszeichen von Ollama (nicht für den ganzen Download).
@@ -205,7 +206,7 @@ def main():
             print(f"\n✔ „{name}“ ist schon vorhanden – wird nicht neu geladen.", flush=True)
             ergebnisse[name] = True
         else:
-            print("\nDas dauert beim ersten Mal je nach Leitung einige Minuten (ca. 2,6 GB).")
+            print("\nDas dauert beim ersten Mal je nach Leitung einige Minuten.")
             ergebnisse[name] = modell_laden(name)
 
     if all(ergebnisse.values()):

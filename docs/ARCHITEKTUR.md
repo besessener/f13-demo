@@ -123,12 +123,13 @@ Das ist der Hauptweg der Demo.
 3. RAG lässt die PDFs vom `parser` in Text umwandeln.
 4. RAG teilt den Text in Abschnitte von 180 Wörtern mit 30 Wörtern Überlappung
    (`document_splitter_config`).
-5. Für jeden Abschnitt und für die Frage berechnet Ollama mit `granite-embedding:278m` einen
-   Vektor (`/v1/embeddings`).
-6. RAG wählt die ähnlichsten Abschnitte aus, höchstens 3 (`max_chunks_to_use: 3`), damit der
-   Prompt in 4096 Tokens passt. Ohne Reranker (**ANNAHME (ungeprüft):** RAG läuft ohne).
-7. Ollama erzeugt mit `llama3.2:3b` und `prompt_map: base_answer_generator` eine Antwort nur
-   aus diesen Abschnitten.
+5. Für jeden Abschnitt und für die Frage berechnet Ollama mit `f13-embedding` (standardmäßig
+   `granite-embedding:278m`) einen Vektor (`/v1/embeddings`).
+6. RAG sucht die ähnlichsten Abschnitte. Der Dienst `reranker` (Stichwort-Reranker,
+   `werkzeuge/reranker.py`) sortiert sie nach gemeinsamen Stichwörtern mit der Frage. RAG
+   nimmt höchstens 3 davon (`max_chunks_to_use: 3`), damit der Prompt in 4096 Tokens passt.
+7. Ollama erzeugt mit `f13-sprachmodell` (standardmäßig `llama3.2:3b`) und
+   `prompt_map: base_answer_generator` eine Antwort nur aus diesen Abschnitten.
 8. Antwort und Quellenangaben gehen zurück an den Browser.
 
 **ANNAHME (ungeprüft):** Im Datei-Modus werden die Dateien bei jeder Frage neu verarbeitet

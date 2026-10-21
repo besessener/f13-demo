@@ -224,9 +224,9 @@ services:
       start_period: 10s
 
   # --- Zusammenfassung --------------------------------------------------------
-  # ANNAHME (ungeprüft): Image-Pfad und Tag von summary, rag und parser sind geraten.
-  # Prüfen mit: docker compose run --rm versionen
-  # ANNAHME (ungeprüft): Konfigurationspfad /<dienst>/configs/ wie bei chat/feedback.
+  # Image-Pfade, Tags und Konfigurationspfad /<dienst>/configs/ von summary, rag und
+  # parser sind in der CI bestätigt (docs/VERIFIZIEREN.md). Tags prüfen mit:
+  # docker compose run --rm versionen
   summary:
     <<: *f13-dienst
     image: registry.opencode.de/f13/microservices/summary:${F13_SUMMARY_VERSION}

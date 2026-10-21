@@ -8,6 +8,9 @@ rem ===========================================================================
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
+rem Frontend-Port aus .env lesen (Standard 9999).
+set "FRONTEND_PORT=9999"
+for /f "tokens=1,* delims==" %%a in ('findstr /b "FRONTEND_PORT=" .env') do set "FRONTEND_PORT=%%b"
 
 echo.
 echo [1/4] Prüfe, ob Rancher Desktop läuft ...
@@ -45,8 +48,8 @@ echo [4/4] Wärme die Modelle vor ^(erste Antwort wird sonst langsam^) ...
 docker compose run --rm warmup
 
 echo.
-echo Fertig. Die Demo läuft unter http://localhost:9999
-start "" http://localhost:9999
+echo Fertig. Die Demo läuft unter http://localhost:%FRONTEND_PORT%
+start "" http://localhost:%FRONTEND_PORT%
 echo Zum Beenden: stopp.cmd
 echo.
 pause
