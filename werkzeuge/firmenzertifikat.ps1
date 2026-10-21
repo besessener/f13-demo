@@ -30,23 +30,33 @@ if ($code -ne 3) {
     exit 0
 }
 
+# Gesendete Kette: zuerst das Serverzertifikat, danach die Zwischenzertifikate des Proxys.
 try {
-    $b64 = [regex]::Match($text, '-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----', 'Singleline').Groups[1].Value -replace '\s', ''
-    $server = [Security.Cryptography.X509Certificates.X509Certificate2]::new([Convert]::FromBase64String($b64))
+    $gesendet = foreach ($treffer in [regex]::Matches($text, '-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----', 'Singleline')) {
+        [Security.Cryptography.X509Certificates.X509Certificate2]::new([Convert]::FromBase64String(($treffer.Groups[1].Value -replace '\s', '')))
+    }
+    $gesendet = @($gesendet)
+    $server = $gesendet[0]
 } catch {
     Write-Host "      FEHLER: Serverzertifikat nicht lesbar: $($_.Exception.Message)"
     exit 1
 }
 Write-Host "      Firmen-Proxy erkannt. Zertifikat ausgestellt von: $($server.Issuer)"
 
+# Windows entscheidet, ob die Kette bei einem vertrauten Stammzertifikat endet. Die
+# gesendeten Zwischenzertifikate helfen nur beim Zusammensetzen, sie werden nicht vertraut.
 $kette = [Security.Cryptography.X509Certificates.X509Chain]::new()
 $kette.ChainPolicy.RevocationMode = 'NoCheck'
+for ($i = 1; $i -lt $gesendet.Count; $i++) { [void]$kette.ChainPolicy.ExtraStore.Add($gesendet[$i]) }
 $vertraut = $kette.Build($server)
 $anzahl = $kette.ChainElements.Count
 $stamm = $kette.ChainElements[$anzahl - 1].Certificate
 
 if (-not $vertraut -or $anzahl -lt 2) {
     Write-Host '      FEHLER: Windows vertraut diesem Zertifikat auch nicht.'
+    Write-Host "      Vom Proxy gesendet: $($gesendet.Count) Zertifikat(e). Kette:"
+    foreach ($element in $kette.ChainElements) { Write-Host "        - $($element.Certificate.Subject)" }
+    foreach ($status in $kette.ChainStatus) { Write-Host "      Grund: $($status.StatusInformation.Trim())" }
     Write-Host '      Bitte die IT nach dem Stammzertifikat der SSL-Prüfung fragen (.cer oder .pem)'
     Write-Host '      und als Datei in config\zertifikate\ ablegen, dann start.cmd erneut ausführen.'
     exit 1

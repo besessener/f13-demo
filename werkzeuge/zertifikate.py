@@ -16,8 +16,9 @@ Zwei Aufgaben:
   python zertifikate.py pruefen
       Wird von start.cmd (werkzeuge/firmenzertifikat.ps1) aufgerufen. Prüft, ob die
       Verbindung zu huggingface.co mit den öffentlichen Stammzertifikaten gültig ist.
-      Exit-Code 0 = gültig, 2 = keine Verbindung, 3 = fremdes Zertifikat (dann wird das
-      Serverzertifikat als PEM ausgegeben, damit Windows die Kette ergänzen kann).
+      Exit-Code 0 = gültig, 2 = keine Verbindung, 3 = fremdes Zertifikat. Dann wird die
+      vom Proxy gesendete Kette (Server- und Zwischenzertifikate) als PEM ausgegeben, damit
+      Windows sie bis zu seinem vertrauten Stammzertifikat ergänzen kann.
 
 Nur Python-Standardbibliothek.
 """
@@ -89,6 +90,21 @@ def buendeln():
     return 0
 
 
+def gesendete_kette():
+    """Zertifikate, die die Gegenstelle sendet (ungeprüft), als PEM; Serverzertifikat zuerst."""
+    kontext = ssl.create_default_context()
+    kontext.check_hostname = False
+    kontext.verify_mode = ssl.CERT_NONE
+    with socket.create_connection((PRUEF_HOST, 443), timeout=TIMEOUT_S) as roh:
+        with kontext.wrap_socket(roh, server_hostname=PRUEF_HOST) as tls:
+            # Ab Python 3.13; ältere Versionen liefern nur das Serverzertifikat.
+            if hasattr(tls, "get_unverified_chain"):
+                kette = tls.get_unverified_chain()
+            else:
+                kette = [tls.getpeercert(binary_form=True)]
+    return [ssl.DER_cert_to_PEM_cert(der) for der in kette]
+
+
 def pruefen():
     try:
         with urllib.request.urlopen(f"https://{PRUEF_HOST}/", timeout=TIMEOUT_S):
@@ -101,7 +117,7 @@ def pruefen():
             print(f"KEINE-VERBINDUNG {grund}")
             return 2
         try:
-            print(ssl.get_server_certificate((PRUEF_HOST, 443), timeout=TIMEOUT_S))
+            print("".join(gesendete_kette()))
         except (OSError, socket.timeout) as fehler2:
             print(f"KEINE-VERBINDUNG {fehler2}")
             return 2
