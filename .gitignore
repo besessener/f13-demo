@@ -19,3 +19,7 @@ docker-compose.override.yml
 
 # Ergebnisse der Werkzeuge (api-doku, CI)
 ausgabe/
+
+# Firmen-Stammzertifikate (werden je Rechner erzeugt, siehe config/zertifikate/README.md)
+config/zertifikate/*
+!config/zertifikate/README.md

@@ -26,6 +26,8 @@ Damit sind diese Punkte geklärt:
 | APISIX-Standard-Timeout | ✘ 60 s zu kurz. Gelöst mit 900 s für chat, summary, rag. |
 | RAG im Dateimodus (`/rag/file`) | ✔ Antwort mit Quellen (Datei und Seite). Die Pipeline des Images erwartet die ID `test_model_mock`; die ist als Alias vorhanden. |
 | Endlose Antworten kleiner Modelle | ✘ Ein Summary-Abschnitt hing 15 Minuten. Gelöst mit `f13-sprachmodell` (`num_predict` = `LLM_MAX_TOKENS`). |
+| Parser ohne Internet | ✘ Der Parser lädt beim ersten Start seine PDF-Modelle (docling) von `huggingface.co` und öffnet erst danach Port 8000. Sie lagen im Container und wurden nach jedem `docker compose down` neu geladen. Gelöst mit dem Volume `parser-modelle`. |
+| Firmen-Proxy mit HTTPS-Prüfung | ✘ Auf einem Firmenlaptop scheiterte der Modell-Download des Parsers mit `CERTIFICATE_VERIFY_FAILED`. Gelöst mit dem Einmal-Container `zertifikate` und der Erkennung in `start.cmd` (siehe `config/zertifikate/README.md`). Auf diesem Laptop noch zu bestätigen. |
 
 Die Abschnitte unten sind die ursprüngliche Checkliste. Offen sind noch zwei Punkte: der
 Datenbankmodus von RAG (Befüllen von Elasticsearch) und die Antwortqualität mit

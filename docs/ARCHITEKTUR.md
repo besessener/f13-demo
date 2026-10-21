@@ -37,8 +37,10 @@ Windows 11 (8 GB RAM)
 │     ▼               ▼                  ▼                             │
 │  ollama :11434 (nur intern): llama3.2:3b + granite-embedding:278m    │
 │                                                                      │
-│  Volumes:   ollama-modelle, es-daten, feedback-db-daten              │
-│  Werkzeuge: modelle-laden, warmup, pruefen, versionen, testfragen    │
+│  Volumes:   ollama-modelle, parser-modelle, zertifikate, es-daten,   │
+│             feedback-db-daten                                        │
+│  Einmal:    zertifikate, modelle-laden (bei jedem up)                │
+│  Werkzeuge: warmup, pruefen, versionen, testfragen, smoke-test, …    │
 │             (Profil „werkzeuge“, nur per docker compose run --rm)    │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -56,11 +58,12 @@ erreichbar, z. B. `http://ollama:11434`.
 | `chat` | F13 `chat` v3.0.0 | Chat mit dem lokalen LLM. Spricht Ollama über die OpenAI-kompatible API `http://ollama:11434/v1` an. |
 | `opa` | Open Policy Agent | Richtlinien-Dienst, ohne den Chat v3 nicht startet. Entscheidet, welche Werkzeuge (Tools) ein Nutzer im agentischen Chat verwenden darf. Meine Minimal-Richtlinie erlaubt alles ohne Rollenbedarf. |
 | `summary` | F13 `summary` | Zusammenfassung von Dokumenten per Map-Reduce: Text in Teile schneiden, jeden Teil zusammenfassen, dann die Teilergebnisse zusammenführen. |
-| `parser` | F13 `parser` (CPU) | Wandelt PDF/DOCX in Text um. Wird von `summary` und `rag` aufgerufen. |
+| `parser` | F13 `parser` (CPU) | Wandelt PDF/DOCX in Text um. Wird von `summary` und `rag` aufgerufen. Lädt beim ersten Start seine PDF-Modelle (docling) von `huggingface.co` und öffnet erst danach Port 8000. Die Modelle liegen im Volume `parser-modelle`. |
 | `rag` | F13 `rag` | Recherche: Dokumente in Abschnitte teilen, Embeddings berechnen, passende Abschnitte suchen und eine Antwort mit Quellen erzeugen. |
 | `reranker` | eigener kleiner Dienst (`werkzeuge/reranker.py`) | F13 RAG verlangt einen Reranker mit Cohere-Schnittstelle. Ein echtes Reranking-Modell bräuchte ca. 1 GB RAM. Dieser Dienst sortiert die Treffer stattdessen nach gemeinsamen Stichwörtern mit der Frage (BM25-artig) und braucht ca. 20 MB. Er trägt außerdem den Netzwerknamen `tusd`, den das Frontend-nginx beim Start erwartet. |
 | `elasticsearch` | Elasticsearch 8 | Vektor-Datenbank für den Datenbank-Modus von RAG. Im Demo-Hauptweg (Datei-Modus) optional. Heap auf 512 MB begrenzt. |
 | `feedback` + `feedback-db` | F13 `feedback` + Postgres | Speichert Daumen hoch/runter aus der Oberfläche. Für die Demo Nebensache, aber Teil des Standard-Stacks. |
+| `zertifikate` | eigener Einmal-Container (`werkzeuge/zertifikate.py`) | Läuft bei jedem `up` vor `parser` und `ollama`. Schreibt die öffentlichen Stammzertifikate plus eigene aus `config/zertifikate/` ins Volume `zertifikate`. `parser`, `ollama` und `versionen` nutzen sie über `SSL_CERT_FILE`. Nötig hinter einem Firmen-Proxy, der HTTPS neu signiert; ohne Proxy nur die öffentlichen. |
 | `ollama` | `ollama/ollama` | Führt die Modelle aus: `llama3.2:3b` als LLM für chat/summary/rag (ID `llama_lokal`) und `granite-embedding:278m` für Embeddings (ID `granite_lokal`). |
 
 `summary`, `rag`, `parser` und `feedback` lesen eine gemeinsame `general.yml` und

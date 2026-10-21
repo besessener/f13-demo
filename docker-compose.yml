@@ -18,6 +18,9 @@
 #   docker compose logs -f chat                Logs eines Dienstes ansehen
 #   docker compose down                        Stoppen – OHNE -v, sonst sind die Modelle weg
 #
+# Hinter einem Firmen-Proxy mit HTTPS-Prüfung legt start.cmd das Firmenzertifikat in
+# config/zertifikate/ ab (siehe dort README.md).
+#
 # Danach im Browser: http://localhost:9999 (Frontend), http://localhost:8000/health (Core)
 #
 # Versionen, Ports und Modellnamen stehen in .env.
@@ -43,6 +46,12 @@ x-f13-dienst: &f13-dienst
     timeout: 5s
     retries: 5
     start_period: 60s
+
+# Stammzertifikate für HTTPS-Downloads aus den Containern: öffentliche plus die aus
+# config/zertifikate/ (Firmen-Proxy). Erzeugt vom Einmal-Container "zertifikate".
+x-zertifikate-umgebung: &zertifikate-umgebung
+  SSL_CERT_FILE: /zertifikate/ca-bundle.pem
+  REQUESTS_CA_BUNDLE: /zertifikate/ca-bundle.pem
 
 x-werkzeug-umgebung: &werkzeug-umgebung
   PYTHONUNBUFFERED: "1"
@@ -77,6 +86,7 @@ services:
     image: ollama/ollama:${OLLAMA_VERSION}
     mem_limit: 3500m
     environment:
+      <<: *zertifikate-umgebung
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_CONTEXT_LENGTH: "4096"
       OLLAMA_FLASH_ATTENTION: "1"
@@ -85,12 +95,16 @@ services:
       OLLAMA_KEEP_ALIVE: "-1"
     volumes:
       - ollama-modelle:/root/.ollama
+      - zertifikate:/zertifikate:ro
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 20s
+    depends_on:
+      zertifikate:
+        condition: service_completed_successfully
 
   # --- Oberfläche -------------------------------------------------------------
   # Es gibt kein fertiges Image: Es wird beim ersten "docker compose up -d" direkt aus
@@ -241,13 +255,32 @@ services:
         condition: service_started
 
   # --- Dokumente einlesen (PDF -> Text) ---------------------------------------
+  # Lädt beim ersten Start seine PDF-Modelle (docling) von huggingface.co und öffnet erst
+  # danach Port 8000. Das Volume parser-modelle hebt sie auf, damit spätere Starts auch
+  # offline funktionieren.
   parser:
     <<: *f13-dienst
     image: registry.opencode.de/f13/microservices/parser:${F13_PARSER_VERSION}
     mem_limit: 900m
+    environment:
+      <<: *zertifikate-umgebung
     volumes:
       - ./config/f13/general.yml:/parser/configs/general.yml:ro
       - ./config/f13/llm_models.yml:/parser/configs/llm_models.yml:ro
+      - parser-modelle:/parser/src/docling-models
+      - zertifikate:/zertifikate:ro
+    # Wie x-f13-dienst, aber mit 15 Minuten Anlaufzeit für den ersten Modell-Download
+    # (auf langsamen Leitungen mehrere Minuten; die CI braucht ca. 10 s).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 900s
+      start_interval: 5s
+    depends_on:
+      zertifikate:
+        condition: service_completed_successfully
 
   # --- Recherche (RAG) --------------------------------------------------------
   rag:
@@ -315,6 +348,17 @@ services:
       start_period: 60s
 
   # --- Einmal-Container beim Start -------------------------------------------
+  # Läuft bei jedem "up" vor parser und ollama. Schreibt die Stammzertifikate (öffentliche
+  # plus config/zertifikate/) ins Volume "zertifikate" (siehe werkzeuge/zertifikate.py).
+  zertifikate:
+    <<: *werkzeug
+    profiles: []
+    command: ["python", "/werkzeuge/zertifikate.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - ./config/zertifikate:/eigene:ro
+      - zertifikate:/zertifikate
+
   # Läuft bei jedem "up" kurz vor chat, summary und rag. Lädt nur fehlende Modelle,
   # deshalb funktioniert der Start offline, sobald die Modelle einmal da sind.
   modelle-laden:
@@ -348,8 +392,14 @@ services:
   versionen:
     <<: *werkzeug
     command: ["python", "/werkzeuge/versionen.py"]
+    volumes:
+      - ./werkzeuge:/werkzeuge:ro
+      - zertifikate:/zertifikate:ro
+    depends_on:
+      zertifikate:
+        condition: service_completed_successfully
     environment:
-      <<: *werkzeug-umgebung
+      <<: [*werkzeug-umgebung, *zertifikate-umgebung]
       F13_FRONTEND_VERSION: ${F13_FRONTEND_VERSION}
       F13_CHAT_VERSION: ${F13_CHAT_VERSION}
       F13_FEEDBACK_VERSION: ${F13_FEEDBACK_VERSION}
@@ -416,5 +466,7 @@ services:
 
 volumes:
   ollama-modelle:
+  parser-modelle:
+  zertifikate:
   es-daten:
   feedback-db-daten:
