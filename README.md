@@ -29,13 +29,15 @@ git clone https://github.com/besessener/f13-demo.git C:\Projekte\f13-demo
 ```
 
 Danach `start.cmd` doppelklicken:
+- erkennt einen Firmen-Proxy, der HTTPS neu signiert, und übernimmt dessen
+  Stammzertifikat aus Windows (siehe [config/zertifikate/](config/zertifikate/README.md))
 - startet alle Container
 - prüft jeden Dienst
 - lädt die Modelle vor
 - öffnet <http://localhost:9999>
 
-Der erste Start braucht Internet: mehrere GB Images plus ca. 2,6 GB Modelle. Danach läuft
-alles offline.
+Der erste Start braucht Internet: mehrere GB Images, ca. 2,6 GB Sprachmodelle und die
+PDF-Modelle des Parsers (von `huggingface.co`). Danach läuft alles offline.
 
 Beenden mit `stopp.cmd`.
 
@@ -56,7 +58,8 @@ Beenden mit `stopp.cmd`.
 | Zurücksetzen | `docker compose restart chat summary rag` |
 | Stoppen | `docker compose down` |
 
-`docker compose down -v` löscht auch die heruntergeladenen Modelle.
+`docker compose down -v` löscht auch die heruntergeladenen Modelle (Sprachmodelle und
+Parser-Modelle).
 
 ## Konfiguration
 
@@ -75,6 +78,8 @@ gilt für diese Anfrage dessen Wert.
 | Erste Antwort langsam | `docker compose run --rm warmup` |
 | Image nicht gefunden | `docker compose run --rm versionen`, dann Tag in `.env` anpassen |
 | YAML-Fehler oder `\r` in Logs | Datei hat Windows-Zeilenenden. Im Editor auf LF umstellen. |
+| `parser` wird nicht „healthy“, Log zeigt `CERTIFICATE_VERIFY_FAILED` | Firmen-Proxy mit HTTPS-Prüfung. `start.cmd` übernimmt das Zertifikat normalerweise selbst; sonst siehe [config/zertifikate/README.md](config/zertifikate/README.md). |
+| `parser` bleibt lange bei „Waiting“ | Er lädt beim ersten Start seine PDF-Modelle. Fortschritt: `docker compose logs -f parser` |
 
 ## Test
 

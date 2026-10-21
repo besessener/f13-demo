@@ -48,6 +48,18 @@ jobs:
               print("✔", datei)
           EOF
 
+      - name: PowerShell-Skripte fehlerfrei lesbar
+        shell: pwsh
+        run: |
+          $fehler = 0
+          foreach ($datei in Get-ChildItem werkzeuge/*.ps1) {
+            $probleme = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($datei.FullName, [ref]$null, [ref]$probleme)
+            if ($probleme) { $probleme | ForEach-Object { Write-Host "✘ $($datei.Name): $_" }; $fehler++ }
+            else { Write-Host "✔ $($datei.Name)" }
+          }
+          exit $fehler
+
       - name: APISIX-Routen enden mit "#END"
         run: test "$(tail -n 1 config/core/apisix-guest.yaml)" = "#END"
 

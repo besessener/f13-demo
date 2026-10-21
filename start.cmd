@@ -1,7 +1,8 @@
 @echo off
 rem ===========================================================================
 rem  F13-Demo starten – per Doppelklick oder in PowerShell:  .\start.cmd
-rem  Startet alle Container, prüft sie, wärmt die Modelle vor und öffnet den Browser.
+rem  Erkennt einen Firmen-Proxy (HTTPS-Prüfung), startet alle Container, prüft sie,
+rem  wärmt die Modelle vor und öffnet den Browser.
 rem  Beim ersten Mal braucht es Internet (Images, Frontend-Build, Modelle, ca. 15 Min.).
 rem  Danach funktioniert der Start auch offline.
 rem ===========================================================================
@@ -13,7 +14,7 @@ set "FRONTEND_PORT=9999"
 for /f "tokens=1,* delims==" %%a in ('findstr /b "FRONTEND_PORT=" .env') do set "FRONTEND_PORT=%%b"
 
 echo.
-echo [1/4] Prüfe, ob Rancher Desktop läuft ...
+echo [1/5] Prüfe, ob Rancher Desktop läuft ...
 docker version >nul 2>&1
 if errorlevel 1 (
   echo.
@@ -23,7 +24,17 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/4] Starte alle Container und warte, bis sie bereit sind ...
+echo [2/5] Prüfe, ob ein Firmen-Proxy HTTPS neu signiert ...
+echo       (Siehe config\zertifikate\README.md)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0werkzeuge\firmenzertifikat.ps1"
+if errorlevel 1 (
+  echo.
+  echo WARNUNG: Firmenzertifikat nicht eingerichtet. Downloads aus den Containern
+  echo          ^(z. B. Parser-Modelle^) können scheitern. Siehe config\zertifikate\README.md
+)
+
+echo.
+echo [3/5] Starte alle Container und warte, bis sie bereit sind ...
 echo       (Beim ersten Mal: Frontend bauen + Modelle laden, das dauert.)
 docker compose up -d --wait --wait-timeout 1800
 if errorlevel 1 (
@@ -36,7 +47,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/4] Prüfe alle Dienste ...
+echo [4/5] Prüfe alle Dienste ...
 docker compose run --rm pruefen
 if errorlevel 1 (
   echo.
@@ -44,7 +55,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/4] Wärme die Modelle vor ^(erste Antwort wird sonst langsam^) ...
+echo [5/5] Wärme die Modelle vor ^(erste Antwort wird sonst langsam^) ...
 docker compose run --rm warmup
 
 echo.
